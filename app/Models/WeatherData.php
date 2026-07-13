@@ -17,8 +17,20 @@ class WeatherData extends Model
         'wind_speed',
         'rainfall',
         'humidity',
+        'cloud',
+        'pressure',
         'weather_condition',
         'storm_risk',
+    ];
+
+    protected $casts = [
+        'temperature' => 'float',
+        'wind_speed' => 'float',
+        'rainfall' => 'float',
+        'humidity' => 'float',
+        'cloud' => 'float',
+        'pressure' => 'float',
+        'storm_risk' => 'integer',
     ];
 
     public function country()

@@ -112,6 +112,37 @@
                         <div>
 
                             <label class="font-semibold">
+                                Cloud Cover (%)
+                            </label>
+
+                            <input
+                                type="number"
+                                name="cloud"
+                                min="0"
+                                max="100"
+                                value="{{ $weather->cloud }}"
+                                class="w-full border rounded p-2">
+
+                        </div>
+
+                        <div>
+
+                            <label class="font-semibold">
+                                Pressure (hPa)
+                            </label>
+
+                            <input
+                                type="number"
+                                step="0.1"
+                                name="pressure"
+                                value="{{ $weather->pressure }}"
+                                class="w-full border rounded p-2">
+
+                        </div>
+
+                        <div>
+
+                            <label class="font-semibold">
                                 Kondisi Cuaca
                             </label>
 

@@ -12,12 +12,16 @@ class Country extends Model
     protected $fillable = [
         'country_name',
         'country_code',
+        'iso3',
         'capital',
         'region',
+        'subregion',
         'currency',
         'language',
         'flag',
-        'population'
+        'population',
+        'latitude',
+        'longitude'
     ];
 
     /*
@@ -66,5 +70,11 @@ class Country extends Model
     public function articles()
     {
         return $this->hasMany(Article::class);
+    }
+
+    // API News Events
+    public function news()
+    {
+        return $this->hasMany(News::class);
     }
 }

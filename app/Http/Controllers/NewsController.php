@@ -6,6 +6,9 @@ use App\Models\Country;
 use App\Models\News;
 use Illuminate\Http\Request;
 
+use App\Services\GNewsService;
+use App\Services\SentimentService;
+
 class NewsController extends Controller
 {
     /**
@@ -16,6 +19,29 @@ class NewsController extends Controller
         $news = News::with('country')->latest()->get();
 
         return view('news.index', compact('news'));
+    }
+
+    /**
+     * Sinkronisasi berita global dan hitung sentimen
+     */
+    public function sync(Request $request, GNewsService $gnewsService, SentimentService $sentimentService)
+    {
+        try {
+            \App\Jobs\ImportNewsJob::dispatch();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'News import started'
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("NewsController@sync error: " . $e->getMessage(), [
+                'exception' => $e
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to start news import: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

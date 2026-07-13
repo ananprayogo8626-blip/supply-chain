@@ -12,12 +12,34 @@ class WatchlistController extends Controller
     /**
      * Menampilkan semua watchlist
      */
-    public function index()
+    public function index(Request $request)
     {
-        $watchlists = Watchlist::with('country')
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
+        $query = Watchlist::with(['country.riskScore', 'country.weatherData', 'country.news'])
+            ->where('user_id', Auth::id());
+
+        // Search
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function($q) use ($s) {
+                $q->where('company_name', 'LIKE', "%{$s}%")
+                  ->orWhere('industry', 'LIKE', "%{$s}%")
+                  ->orWhereHas('country', function($cq) use ($s) {
+                      $cq->where('country_name', 'LIKE', "%{$s}%");
+                  });
+            });
+        }
+
+        // Filter Priority
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        // Filter Status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $watchlists = $query->latest()->get();
 
         return view('watchlists.index', compact('watchlists'));
     }
@@ -43,6 +65,7 @@ class WatchlistController extends Controller
             'industry' => 'nullable|string|max:255',
             'priority' => 'required|integer|min:1|max:5',
             'status' => 'required|in:Monitoring,Critical,Resolved',
+            'is_active' => 'nullable',
             'notes' => 'nullable|string',
         ]);
 
@@ -53,7 +76,7 @@ class WatchlistController extends Controller
             'industry' => $request->industry,
             'priority' => $request->priority,
             'status' => $request->status,
-            'is_active' => true,
+            'is_active' => $request->has('is_active') ? (bool) $request->is_active : true,
             'notes' => $request->notes,
         ]);
 
@@ -83,6 +106,7 @@ class WatchlistController extends Controller
             'industry' => 'nullable|string|max:255',
             'priority' => 'required|integer|min:1|max:5',
             'status' => 'required|in:Monitoring,Critical,Resolved',
+            'is_active' => 'nullable',
             'notes' => 'nullable|string',
         ]);
 
@@ -92,6 +116,7 @@ class WatchlistController extends Controller
             'industry' => $request->industry,
             'priority' => $request->priority,
             'status' => $request->status,
+            'is_active' => $request->has('is_active') ? (bool) $request->is_active : false,
             'notes' => $request->notes,
         ]);
 

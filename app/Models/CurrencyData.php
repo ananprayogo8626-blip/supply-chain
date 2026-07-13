@@ -29,10 +29,50 @@ class CurrencyData extends Model
      * Casting data
      */
     protected $casts = [
-        'exchange_rate' => 'decimal:6',
-        'change_percentage' => 'decimal:2',
+        'exchange_rate' => 'float',
+        'change_percentage' => 'float',
         'last_updated' => 'datetime',
     ];
+
+    /**
+     * Appended dynamic attributes
+     */
+    protected $appends = ['buy', 'sell', 'symbol'];
+
+    /**
+     * Accessor for currency symbol
+     */
+    public function getSymbolAttribute()
+    {
+        $code = strtoupper($this->currency_code);
+        $symbols = [
+            'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'JPY' => '¥', 'IDR' => 'Rp',
+            'CNY' => '¥', 'SGD' => 'S$', 'AUD' => 'A$', 'CAD' => 'C$', 'INR' => '₹',
+            'MYR' => 'RM', 'PHP' => '₱', 'THB' => '฿', 'VND' => '₫', 'KRW' => '₩',
+            'RUB' => '₽', 'BRL' => 'R$', 'TRY' => '₺', 'ZAR' => 'R', 'MXN' => '$',
+            'AED' => 'د.إ', 'SAR' => 'ر.س', 'EGP' => 'E£', 'PKR' => '₨', 'BDT' => '৳',
+            'HKD' => 'HK$', 'TWD' => 'NT$', 'NZD' => 'NZ$', 'CHF' => 'Fr', 'SEK' => 'kr',
+            'NOK' => 'kr', 'DKK' => 'kr', 'PLN' => 'zł', 'HUF' => 'Ft', 'CZK' => 'Kč',
+            'ILS' => '₪', 'CLP' => '$', 'COP' => '$', 'PEN' => 'S/.', 'ARS' => '$',
+        ];
+        return $symbols[$code] ?? $code;
+    }
+
+    /**
+     * Accessor for dynamic buy rate
+     */
+    public function getBuyAttribute()
+    {
+        return (float) $this->exchange_rate * 0.99;
+    }
+
+    /**
+     * Accessor for dynamic sell rate
+     */
+    public function getSellAttribute()
+    {
+        return (float) $this->exchange_rate * 1.01;
+    }
 
     /**
      * Relasi ke Country

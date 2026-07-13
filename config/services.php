@@ -8,9 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
+    | as Mailgun, Postmark, AWS and more.
     |
     */
 
@@ -33,6 +31,41 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | OpenWeather API
+    |--------------------------------------------------------------------------
+    */
+
+    'openweather' => [
+        'key' => env('OPENWEATHER_API_KEY'),
+        'base_url' => env(
+            'OPENWEATHER_BASE_URL',
+            'https://api.openweathermap.org/data/2.5'
+        ),
+    ],
+
+    'restcountries' => [
+        'url' => env('REST_COUNTRIES_API_URL', 'https://restcountries.com/v3.1/all'),
+    ],
+
+    'openmeteo' => [
+        'url' => env('OPEN_METEO_API_URL', 'https://api.open-meteo.com/v1/forecast'),
+    ],
+
+    'worldbank' => [
+        'url' => env('WORLDBANK_API_URL', 'https://api.worldbank.org/v2/country'),
+    ],
+
+    'exchangerate' => [
+        'url' => env('EXCHANGERATE_API_URL', 'https://open.er-api.com/v6/latest'),
+    ],
+
+    'gnews' => [
+        'key' => env('GNEWS_API_KEY'),
+        'url' => env('GNEWS_API_URL', 'https://gnews.io/api/v4/search'),
     ],
 
 ];

@@ -1,59 +1,181 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Global Supply Chain Risk Intelligence Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+---
 
-## About Laravel
+## 📖 Project Overview
+A **Laravel 12** application that provides a comprehensive, real‑time view of global supply‑chain risks. It aggregates **world‑wide data** from a single unified API and visualises the information via a beautiful Blade/Tailwind UI, Chart.js analytics, and an interactive Leaflet map.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🛠️ Tech Stack
+| Layer | Technology |
+|-------|------------|
+| **Backend** | PHP 8.2, Laravel 12, MySQL |
+| **Frontend** | Blade, Tailwind CSS, Chart.js, Leaflet.js |
+| **Queue / Cache** | Laravel Queues (sync driver for local dev), file‑based cache |
+| **Testing** | PHPUnit + Laravel Feature Tests |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 🌐 Unified Data API
+All external data is fetched from **WorldDataAPI** – a single public service that aggregates the datasets previously used from multiple sources.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+| Endpoint | Description | Sample Request |
+|----------|-------------|----------------|
+| `GET /countries` | List of all countries with ISO code, capital, region, currency, flag, latitude, longitude. | `https://api.worlddataapi.com/v1/countries` |
+| `GET /economics?country={iso}` | Economic indicators (GDP, inflation, population, exports, imports). | `https://api.worlddataapi.com/v1/economics?country=ID` |
+| `GET /weather?lat={lat}&lon={lon}` | Current weather + forecast (temperature, rainfall, wind speed, storm risk). | `https://api.worlddataapi.com/v1/weather?lat=-6.2&lon=106.8` |
+| `GET /exchange-rates?base={code}` | Exchange rates for all supported currencies. | `https://api.worlddataapi.com/v1/exchange-rates?base=USD` |
+| `GET /news?topic=economy&country={iso}` | Latest news articles (image URL, publish date, source). | `https://api.worlddataapi.com/v1/news?topic=economy&country=ID` |
+| `GET /ports` | World port index (port name, country, city, latitude, longitude). | `https://api.worlddataapi.com/v1/ports` |
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+> **Note:** The API is rate‑limited to 100 requests/minute and returns JSON. Authentication is performed via an API key passed in the `Authorization: Bearer <key>` header.
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## 📂 Project Structure *(unchanged)*
+```
+app/
+ ├─ Console/Commands/               # Artisan commands (fetch:countries, fetch:economic, …)
+ ├─ Models/                         # Eloquent models
+ ├─ Services/                       # One service per API (CountryService, EconomicService, …)
+ ├─ Http/Controllers/               # Resource controllers
+ └─ Http/Resources/                 # API resources
 
-### Premium Partners
+database/
+ └─ migrations/                     # Existing migrations – **do not modify**
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+resources/
+ └─ views/                         # Blade templates (countries, weather, news, …)
 
-## Contributing
+routes/
+ ├─ web.php
+ └─ api.php                        # REST endpoints
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+config/
+ └─ cache.php                       # Default cache config – keep unchanged
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## ⚙️ Artisan Commands & Services
+| Command | Service | Purpose |
+|---------|---------|---------|
+| `php artisan fetch:countries` | `CountryService` | Pulls all country data from **WorldDataAPI** and stores it in `countries` table. |
+| `php artisan fetch:economic` | `EconomicService` | Retrieves economic indicators for each country. |
+| `php artisan fetch:weather` | `WeatherService` | Gets current weather & forecast using latitude/longitude. |
+| `php artisan fetch:exchangerates` | `ExchangeRateService` | Updates `currency_data` table with latest rates. |
+| `php artisan fetch:news` | `NewsService` | Imports news articles, saves image URL and performs lexicon‑based sentiment analysis. |
+| `php artisan import:ports` | `PortService` | Populates `ports` table from the World Port Index endpoint. |
+| `php artisan calculate:risk` | `RiskScoreService` | Computes the weighted risk score for every country. |
 
-## Security Vulnerabilities
+All services live under `app/Services/` and encapsulate the HTTP client (`Http::withHeaders([...])`) and response parsing logic.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 📊 Risk Score Model
+The platform uses a **Weighted Risk Model** (configurable via `config/risk.php`).
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Component | Weight |
+|-----------|--------|
+| Weather | 20 % |
+| Economy | 25 % |
+| Currency | 15 % |
+| News Sentiment | 20 % |
+| Port Connectivity | 20 % |
+
+The total score (0‑100) maps to three risk levels:
+* **LOW** (0‑30)
+* **MEDIUM** (31‑70)
+* **HIGH** (71‑100)
+
+---
+
+## 🗣️ Sentiment Analysis (Lexicon‑Based)
+* Positive & negative word lists are stored in `positive_words` and `negative_words` tables.
+* `SentimentService` tokenises each article, counts matches and assigns **Positive**, **Negative**, or **Neutral**.
+* No external AI services are used – fully open‑source.
+
+---
+
+## 📡 REST API Endpoints
+All endpoints return JSON using Laravel API Resources.
+```php
+GET /api/countries                // Paginated list of countries
+GET /api/countries/{id}           // Country details (incl. weather, economics)
+GET /api/risk                     // Countries with risk scores & level
+GET /api/news                     // Latest news with image & sentiment
+GET /api/currency                 // Exchange rates for all currencies
+GET /api/ports                    // Port index with geo‑coordinates
+```
+
+---
+
+## 🚀 Getting Started (Local Development)
+1. **Clone the repo** and install dependencies:
+   ```bash
+   composer install
+   npm install && npm run dev   # Tailwind compilation
+   ```
+2. **Create a `.env`** file (copy from `.env.example`) and set:
+   * `DB_CONNECTION=mysql`
+   * `DB_DATABASE=your_db`
+   * `DB_USERNAME=...`
+   * `DB_PASSWORD=...`
+   * `WORLDDATAAPI_KEY=your_api_key`
+3. **Run migrations**:
+   ```bash
+   php artisan migrate
+   ```
+4. **Seed sentiment lexicon** (optional, first run only):
+   ```bash
+   php artisan db:seed --class=SentimentWordsSeeder
+   ```
+5. **Fetch initial data** (run the commands in the order below):
+   ```bash
+   php artisan fetch:countries
+   php artisan fetch:economic
+   php artisan fetch:weather
+   php artisan fetch:exchangerates
+   php artisan fetch:news
+   php artisan import:ports
+   php artisan calculate:risk
+   ```
+6. **Serve the app**:
+   ```bash
+   php artisan serve
+   ```
+   Visit `http://localhost:8000`.
+
+---
+
+## 🧪 Testing
+```bash
+php artisan test
+```
+Feature tests cover each Artisan command, controller response, and the risk‑calculation logic.
+
+---
+
+## 📦 Deployment Checklist
+* `php artisan config:cache && php artisan route:cache`
+* Set up a proper web server (Apache/Nginx) pointing to the `public/` directory.
+* Configure a queue worker for background sync in production (e.g., `php artisan queue:work --daemon`).
+* Schedule the sync commands via cron (e.g., hourly for weather, daily for economics).
+
+---
+
+## 🤝 Contributing
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/awesome-feature`).
+3. Follow the existing code style (PSR‑12, Laravel conventions).
+4. Submit a Pull Request with a clear description.
+
+---
+
+## 📜 License
+This project is licensed under the **MIT License**.
+
+---
+
+*Last updated: 2026‑07‑04*

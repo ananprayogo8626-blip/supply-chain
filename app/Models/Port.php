@@ -19,6 +19,7 @@ class Port extends Model
         'country_id',
         'port_name',
         'port_code',
+        'unlocode',
         'city',
         'latitude',
         'longitude',

@@ -18,10 +18,14 @@ class News extends Model
         'impact_score',
         'summary',
         'published_at',
+        'image',
+        'sentiment',
+        'sentiment_score',
     ];
 
     protected $casts = [
         'impact_score' => 'integer',
+        'sentiment_score' => 'integer',
         'published_at' => 'datetime',
     ];
 

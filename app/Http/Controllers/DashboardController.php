@@ -17,7 +17,7 @@ class DashboardController extends Controller
             'totalPorts'        => Port::count(),
             'totalArticles'     => Article::count(),
             'totalWatchlists'   => Watchlist::count(),
-            'highRiskCountries' => RiskScore::count(),
+            'highRiskCountries' => RiskScore::where('total_score', '>=', 51)->count(),
         ]);
     }
 }
