@@ -70,7 +70,7 @@ class ImportNewsJob implements ShouldQueue
             }
 
             // ── 2. Fetch articles from GNews ──────────────────────
-            $articles = $gnewsService->getSupplyChainNews();
+            $articles = $gnewsService->getSupplyChainNews(true);
 
             if (empty($articles)) {
                 Log::warning('[ImportNewsJob] No articles returned from GNews API. Keeping existing data.');
@@ -252,6 +252,15 @@ class ImportNewsJob implements ShouldQueue
                     'finished_at' => now(),
                 ]);
             }
+
+            // Create SyncLog record so UI status and dashboards display the failure
+            \App\Models\SyncLog::create([
+                'batch_id' => 'import_' . ($progress->id ?? uniqid()),
+                'stage' => 'news',
+                'error_message' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'failed_at' => now(),
+            ]);
 
             // DO NOT throw — we preserve existing data when API fails.
         }

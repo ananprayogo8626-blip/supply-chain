@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * GNews API Service
@@ -17,6 +18,7 @@ class GNewsService
     public function __construct()
     {
         $this->apiKey = config('services.gnews.key') ?? env('GNEWS_API_KEY') ?? '';
+        $this->baseUrl = config('services.gnews.url') ?? 'https://gnews.io/api/v4/search';
     }
 
     /**
@@ -46,8 +48,13 @@ class GNewsService
                 ]);
 
             if (!$response->successful()) {
-                Log::warning('GNewsService: API returned HTTP ' . $response->status() . ' for query "' . $query . '"');
-                return [];
+                $errorData = $response->json();
+                $errorMessage = isset($errorData['errors'])
+                    ? implode(', ', (array) $errorData['errors'])
+                    : ($errorData['message'] ?? 'Unknown API error');
+
+                Log::error('GNewsService: API returned HTTP ' . $response->status() . ' for query "' . $query . '". Error: ' . $errorMessage);
+                throw new \Exception("GNews API error (HTTP {$response->status()}): {$errorMessage}");
             }
 
             $data = $response->json();
@@ -58,7 +65,7 @@ class GNewsService
 
         } catch (\Throwable $e) {
             Log::warning('GNewsService: Exception for query "' . $query . '": ' . $e->getMessage());
-            return [];
+            throw $e;
         }
     }
 
@@ -66,23 +73,22 @@ class GNewsService
      * Fetch supply-chain news across multiple topics.
      * Returns only real API data — no dummy/fallback data generated.
      *
+     * @param bool $forceRefresh
      * @return array
      */
-    public function getSupplyChainNews(): array
+    public function getSupplyChainNews(bool $forceRefresh = false): array
     {
+        $cacheKey = 'gnews_supply_chain_articles';
+
+        if (!$forceRefresh && Cache::has($cacheKey)) {
+            Log::info('GNewsService: Returning cached supply chain articles.');
+            return Cache::get($cacheKey) ?: [];
+        }
+
         $topics = [
-            'logistics',
-            'shipping',
-            'supply chain',
-            'economy',
-            'trade',
-            'export',
-            'import',
-            'inflation',
-            'port',
-            'harbor',
-            'container',
-            'cargo',
+            '"supply chain" OR logistics OR freight OR warehousing',
+            'shipping OR cargo OR container OR port OR harbor OR terminal',
+            'economy OR trade OR inflation OR export OR import'
         ];
 
         $allArticles = [];
@@ -90,17 +96,23 @@ class GNewsService
 
         foreach ($topics as $topic) {
             Log::info('GNewsService: Fetching articles for topic "' . $topic . '"');
-            $articles = $this->getNews($topic, 'en', 10);
+            try {
+                $articles = $this->getNews($topic, 'en', 10);
 
-            foreach ($articles as $article) {
-                $url = $article['url'] ?? '';
-                if ($url && isset($seenUrls[$url])) {
-                    continue; // skip URL duplicates within this batch
+                foreach ($articles as $article) {
+                    $url = $article['url'] ?? '';
+                    if ($url && isset($seenUrls[$url])) {
+                        continue; // skip URL duplicates within this batch
+                    }
+                    if ($url) {
+                        $seenUrls[$url] = true;
+                    }
+                    $allArticles[] = $article;
                 }
-                if ($url) {
-                    $seenUrls[$url] = true;
-                }
-                $allArticles[] = $article;
+            } catch (\Throwable $e) {
+                Log::error('GNewsService: Error fetching topic "' . $topic . '": ' . $e->getMessage());
+                // Propagate the exception to halt further queries to save quota on failures
+                throw $e;
             }
 
             // Respect GNews rate-limit on free plan (100 req/day)
@@ -108,6 +120,12 @@ class GNewsService
         }
 
         Log::info('GNewsService: Total unique articles fetched: ' . count($allArticles));
+
+        // Save to cache before returning
+        if (!empty($allArticles)) {
+            Cache::put($cacheKey, $allArticles, 600); // cache for 10 minutes
+        }
+
         return $allArticles;
     }
 

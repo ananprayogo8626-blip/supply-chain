@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Log;
  */
 class NewsSync extends Command
 {
-    protected $signature   = 'sync:news';
+    protected $signature   = 'sync:news {--batch=} {--total-batches=} {--force}';
     protected $description = 'Sync latest supply-chain news from GNews API';
 
     public function handle(GNewsService $gnewsService, SentimentService $sentimentService): int
@@ -34,7 +34,8 @@ class NewsSync extends Command
         Log::info('[NewsSync] Sync Started');
 
         // ── 1. Fetch articles ─────────────────────────────────────
-        $articles = $gnewsService->getSupplyChainNews();
+        $force = (bool) $this->option('force');
+        $articles = $gnewsService->getSupplyChainNews($force);
 
         if (empty($articles)) {
             $this->warn('No articles returned from GNews API. Keeping existing data.');

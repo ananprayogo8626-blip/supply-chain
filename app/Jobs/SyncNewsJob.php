@@ -48,6 +48,7 @@ class SyncNewsJob implements ShouldQueue
 
             if ($exitCode !== 0) {
                 Log::warning("SyncNewsJob failed: Batch {$this->batchNumber} exited with code {$exitCode}");
+                throw new \Exception("Artisan command sync:news failed with exit code {$exitCode}");
             }
 
             if ($progress) {
@@ -82,5 +83,14 @@ class SyncNewsJob implements ShouldQueue
         if ($progress) {
             $progress->markAsFailed('News sync failed: ' . $exception->getMessage());
         }
+
+        // Create SyncLog record for live status updates and dashboard display
+        \App\Models\SyncLog::create([
+            'batch_id' => $this->batchId,
+            'stage' => 'news',
+            'error_message' => $exception->getMessage(),
+            'exception_class' => get_class($exception),
+            'failed_at' => now(),
+        ]);
     }
 }
