@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Country extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'country_name',
@@ -21,7 +22,8 @@ class Country extends Model
         'flag',
         'population',
         'latitude',
-        'longitude'
+        'longitude',
+        'timezone'
     ];
 
     /*
@@ -40,6 +42,12 @@ class Country extends Model
     public function economicData()
     {
         return $this->hasOne(EconomicData::class);
+    }
+
+    // Economic History
+    public function economicHistories()
+    {
+        return $this->hasMany(EconomicHistory::class);
     }
 
     // Currency

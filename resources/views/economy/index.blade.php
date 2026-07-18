@@ -1,48 +1,88 @@
 <x-app-layout>
 
-    <div class="sg-page-header">
-        <div class="sg-page-header-row">
-            <div>
-                <h1 class="sg-page-title">Economic Data</h1>
-                <p class="sg-page-desc">Macroeconomic indicators sourced from World Bank API.</p>
-            </div>
-            <div class="sg-data-actions">
-                <a href="{{ route('economy.import') }}"
-                   onclick="return confirm('Import economy data for all countries from World Bank API? This may take a moment.')"
-                   class="sg-btn sg-btn-outline-orange" id="btn-import-economy">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    Import World Bank API
-                </a>
-                <a href="{{ route('economy.create') }}" class="sg-btn sg-btn-gradient" id="btn-add-economy">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Add Data
-                </a>
-            </div>
-        </div>
-    </div>
+    <!-- Standardized Header -->
+    <x-crud-header 
+        title="Economic Data"
+        description="Macroeconomic indicators sourced from World Bank API."
+        icon="trending-up"
+        iconColor="text-green-400"
+    >
+        <a href="#import-section" onclick="document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            Import CSV
+        </a>
+        <a href="{{ route('economy.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Export CSV
+        </a>
+        <a href="{{ route('economy.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            Export PDF
+        </a>
+        <button onclick="startImport('economy')" class="sg-btn sg-btn-sm sg-btn-outline-orange">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            Sync World Bank API
+        </button>
+        <a href="{{ route('economy.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add Data
+        </a>
+    </x-crud-header>
 
     @if(session('success'))
-        <div class="sg-flash sg-flash-success mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <div class="sg-flash sg-flash-success">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
             {{ session('success') }}
         </div>
     @endif
     @if(session('error'))
-        <div class="sg-flash sg-flash-error mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="sg-flash sg-flash-error">
+            <i data-lucide="alert-circle" class="w-5 h-5"></i>
             {{ session('error') }}
         </div>
     @endif
 
+    <!-- CSV Import Card -->
+    <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
+        <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import Economy from CSV</h3>
+        <form action="{{ route('economy.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            @csrf
+            <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
+            <button type="submit" class="sg-btn sg-btn-secondary">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Import CSV
+            </button>
+        </form>
+    </div>
+
+    <!-- Standardized Toolbar -->
+    <x-crud-toolbar 
+        searchPlaceholder="Search economic data..."
+        searchValue="{{ request('search') }}"
+        :showRefresh="true"
+        :showExport="false"
+        :showImport="false"
+        :showAdd="false"
+    >
+        <select name="status" onchange="this.form.submit()">
+            <option value="">Active</option>
+            <option value="trash" {{ request('status') === 'trash' ? 'selected' : '' }}>Trash (Deleted)</option>
+        </select>
+    </x-crud-toolbar>
+
+    <!-- Glass Card with Table -->
     <div class="sg-data-card">
         <div class="sg-data-head">
             <div class="sg-data-head-left">
-                <svg fill="none" stroke="#4f46e5" viewBox="0 0 24 24" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                <i data-lucide="trending-up" class="w-5 h-5 text-green-400"></i>
                 <h2 class="sg-data-title">Macroeconomic Indicators
-                    <span class="sg-count-badge">{{ $economy->count() }} records</span>
+                    <span class="sg-count-badge">{{ $economy->total() }} records</span>
                 </h2>
             </div>
-            <div style="font-size:12px;color:#64748b">Source: World Bank API (api.worldbank.org)</div>
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+                <i data-lucide="database" class="w-4 h-4 text-blue-400"></i>
+                Source: World Bank API
+            </div>
         </div>
 
         <div style="overflow-x:auto">
@@ -50,56 +90,27 @@
                 <thead>
                     <tr>
                         <th style="width:40px" class="sg-td-center">#</th>
-                        <th>
-                            <a href="{{ route('economy.index', array_merge(request()->query(), ['sort' => request('sort') === 'country' ? 'country_desc' : 'country'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px">
-                                Country
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-right">
-                            <a href="{{ route('economy.index', array_merge(request()->query(), ['sort' => request('sort') === 'gdp' ? 'gdp_desc' : 'gdp'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:flex-end">
-                                GDP (USD)
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('economy.index', array_merge(request()->query(), ['sort' => request('sort') === 'gdp_growth' ? 'gdp_growth_desc' : 'gdp_growth'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                GDP Growth
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('economy.index', array_merge(request()->query(), ['sort' => request('sort') === 'inflation' ? 'inflation_desc' : 'inflation'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Inflation
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
+                        <th>Country</th>
+                        <th class="sg-td-right">GDP (USD)</th>
+                        <th class="sg-td-center">GDP Growth</th>
+                        <th class="sg-td-center">Inflation</th>
                         <th class="sg-td-right">Exports</th>
                         <th class="sg-td-right">Imports</th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('economy.index', array_merge(request()->query(), ['sort' => request('sort') === 'data_year' ? 'data_year_desc' : 'data_year'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Year
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
+                        <th class="sg-td-center">Year</th>
+                        <th class="sg-td-center">Status</th>
                         <th class="sg-td-center" style="width:170px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($economy as $item)
                         <tr>
-                            <td class="sg-td-num">{{ $loop->iteration }}</td>
+                            <td class="sg-td-num">{{ $economy->firstItem() + $loop->index }}</td>
                             <td>
                                 <div class="sg-flag-cell">
                                     @if($item->country && $item->country->flag)
                                         <img src="{{ $item->country->flag }}" alt="" loading="lazy"
-                                            onerror="this.onerror=null;this.src='https://flagcdn.com/w40/un.png';"
-                                            style="width:32px;height:22px;object-fit:cover;border-radius:3px;border:1px solid #e2e8f0">
+                                             onerror="this.onerror=null;this.src='https://flagcdn.com/w40/un.png';"
+                                             style="width:32px;height:22px;object-fit:cover;border-radius:3px;border:1px solid #e2e8f0">
                                     @endif
                                     <span class="sg-country-name">{{ $item->country->country_name ?? '—' }}</span>
                                 </div>
@@ -117,16 +128,16 @@
                             <td class="sg-td-center">
                                 @php $growth = (float)($item->gdp_growth ?? 0); @endphp
                                 @if($item->gdp_growth !== null)
-                                    <span style="font-weight:700;color:{{ $growth >= 0 ? '#16a34a' : '#dc2626' }}">
+                                    <span class="font-bold {{ $growth >= 0 ? 'text-green-400' : 'text-red-400' }}">
                                         {{ $growth >= 0 ? '+' : '' }}{{ number_format($growth, 1) }}%
                                     </span>
                                 @else
-                                    <span class="text-muted">—</span>
+                                    <span class="text-slate-500">—</span>
                                 @endif
                             </td>
                             <td class="sg-td-center">
                                 @php $inf = (float)($item->inflation ?? 0); @endphp
-                                <span style="font-weight:600;color:{{ $inf > 10 ? '#dc2626' : ($inf > 5 ? '#ea580c' : '#64748b') }}">
+                                <span class="font-semibold {{ $inf > 10 ? 'text-red-400' : ($inf > 5 ? 'text-orange-400' : 'text-slate-400') }}">
                                     {{ $item->inflation !== null ? number_format($inf, 1).'%' : '—' }}
                                 </span>
                             </td>
@@ -141,36 +152,172 @@
                             <td class="sg-td-center">
                                 <span class="sg-code-badge">{{ $item->data_year ?? '—' }}</span>
                             </td>
+                            <td class="sg-td-center">
+                                @if($item->trashed())
+                                    <span class="sg-badge high">Deleted</span>
+                                @else
+                                    <span class="sg-badge low">Active</span>
+                                @endif
+                            </td>
                             <td>
                                 <div class="sg-action-group">
-                                    <a href="{{ route('economy.sync', $item->country_id) }}"
-                                       onclick="return confirm('Sync latest data from World Bank API?')"
-                                       class="sg-btn sg-btn-xs sg-btn-green" id="sync-eco-{{ $item->id }}">
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                        Sync
-                                    </a>
-                                    <a href="{{ route('economy.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning" id="edit-eco-{{ $item->id }}">Edit</a>
-                                    <form action="{{ route('economy.destroy', $item->id) }}" method="POST" style="display:inline" onsubmit="return confirm('Delete this record?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger" id="del-eco-{{ $item->id }}">Del</button>
-                                    </form>
+                                    @if($item->trashed())
+                                        <form action="{{ route('economy.restore', $item->id) }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-teal" title="Restore Economy">
+                                                <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restore
+                                            </button>
+                                        </form>
+                                    @else
+                                        @if($item->country_id)
+                                            <a href="{{ route('economy.sync', $item->country_id) }}"
+                                               onclick="return confirm('Sync latest data from World Bank API?')"
+                                               class="sg-btn sg-btn-xs sg-btn-scorecard" title="Sync from World Bank API">
+                                                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                                Sync
+                                            </a>
+                                        @endif
+                                        <a href="{{ route('economy.show', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-secondary">
+                                            <i data-lucide="eye" class="w-3 h-3"></i> View
+                                        </a>
+                                        <a href="{{ route('economy.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning">Edit</a>
+                                        <form action="{{ route('economy.destroy', $item->id) }}" method="POST" class="sg-delete-form" onsubmit="return confirm('Delete this record?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger">Del</button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="sg-empty">
-                                <div class="sg-empty-icon">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                            <td colspan="10">
+                                <div class="sg-empty-state">
+                                    <div class="sg-empty-icon">
+                                        <i data-lucide="trending-up" class="w-8 h-8"></i>
+                                    </div>
+                                    <h3>No Economic Data</h3>
+                                    <p>Go to Countries and click Economy Sync for each country, or add records manually.</p>
+                                    <a href="{{ route('countries.index') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+                                        <i data-lucide="globe" class="w-4 h-4"></i>
+                                        Go to Countries
+                                    </a>
                                 </div>
-                                <p>No economic data. Go to Countries and click Economy Sync for each country.</p>
-                                <a href="{{ route('countries.index') }}" class="sg-btn sg-btn-primary">Go to Countries</a>
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        @if(method_exists($economy, 'hasPages') && $economy->hasPages())
+            <div class="sg-pagination">
+                <div class="sg-pagination-info">
+                    Showing <strong>{{ $economy->firstItem() }}</strong>–<strong>{{ $economy->lastItem() }}</strong> of <strong>{{ $economy->total() }}</strong> records
+                </div>
+                <div class="sg-pagination-nav">
+                    {{ $economy->withQueryString()->links() }}
+                </div>
+            </div>
+        @endif
     </div>
 
+    <style>
+        .sg-form-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--sg-border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            color: var(--sg-text-primary);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            font-family: inherit;
+        }
+        .sg-form-input:focus {
+            border-color: rgba(255,107,0,0.5);
+            box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
+        }
+    </style>
+
+    <script>
+        function startImport(service) {
+            Swal.fire({
+                title: 'Importing ' + service + ' data...',
+                html: '<div class="progress-container"><div class="progress-bar" id="import-progress-bar" style="width:0%"></div></div><p id="import-status">Initializing...</p>',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                background: '#1B2433',
+                color: '#F8FAFC',
+                didOpen: () => {
+                    fetch('/' + service + '/import/api', { method: 'GET' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                pollProgress(service);
+                            } else {
+                                Swal.close();
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Import Failed',
+                                    text: data.message || 'Failed to start import',
+                                    confirmButtonColor: '#FF6B00',
+                                    background: '#1B2433',
+                                    color: '#F8FAFC'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to start import: ' + err.message,
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        });
+                }
+            });
+        }
+
+        function pollProgress(service) {
+            let timer = setInterval(() => {
+                fetch('/sync/progress/' + service)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'completed' || data.status === 'success') {
+                            clearInterval(timer);
+                            document.getElementById('import-progress-bar').style.width = '100%';
+                            document.getElementById('import-status').innerText = 'Finished successfully!';
+                            setTimeout(() => {
+                                Swal.close();
+                                location.reload();
+                            }, 1000);
+                        } else if (data.status === 'failed' || data.status === 'error') {
+                            clearInterval(timer);
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Import Failed',
+                                text: data.message || 'Sync failed.',
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        } else {
+                            let pct = data.percentage || 0;
+                            document.getElementById('import-progress-bar').style.width = pct + '%';
+                            document.getElementById('import-status').innerText = 'Processing: ' + pct + '%';
+                        }
+                    })
+                    .catch(() => {
+                        // ignore and retry
+                    });
+            }, 1500);
+        }
+    </script>
 </x-app-layout>

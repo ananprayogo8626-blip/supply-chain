@@ -39,13 +39,24 @@
                 @method('patch')
 
                 <div class="sg-profile-avatar">
-                    <div class="sg-avatar">
-                        {{ substr($user->name, 0, 1) }}
+                    <div class="sg-avatar" id="avatar-display">
+                        @if($user->profile_photo)
+                            <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="Profile Photo" class="sg-avatar-img">
+                        @else
+                            {{ substr($user->name, 0, 1) }}
+                        @endif
                     </div>
-                    <button type="button" class="sg-avatar-upload">
+                    <input type="file" id="profile_photo" name="profile_photo" 
+                           class="sg-file-input" 
+                           accept="image/jpg,image/jpeg,image/png,image/webp"
+                           onchange="previewImage(event)">
+                    <button type="button" class="sg-avatar-upload" onclick="document.getElementById('profile_photo').click()">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                         Change Photo
                     </button>
+                    @error('profile_photo')
+                        <div class="sg-form-error">{{ $message }}</div>
+                    @enderror
                 </div>
 
                 <div class="sg-form-row">
@@ -90,34 +101,16 @@
                     </div>
                 </div>
 
-                <div class="sg-form-row">
-                    <div class="sg-form-group">
-                        <label class="sg-form-label">Phone Number</label>
-                        <input type="tel" id="phone" name="phone" 
-                               class="sg-form-input" 
-                               value="{{ old('phone', $user->phone ?? '') }}" 
-                               autocomplete="tel"
-                               placeholder="Enter your phone number (optional)">
-                        @error('phone')
-                            <div class="sg-form-error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="sg-form-group">
-                        <label class="sg-form-label">Role</label>
-                        <input type="text" 
-                               class="sg-form-input sg-form-input-readonly" 
-                               value="{{ $user->role ?? 'User' }}" 
-                               readonly>
-                    </div>
-                </div>
-
                 <div class="sg-form-group">
-                    <label class="sg-form-label">Member Since</label>
-                    <input type="text" 
-                           class="sg-form-input sg-form-input-readonly" 
-                           value="{{ $user->created_at ? $user->created_at->format('F j, Y') : 'N/A' }}" 
-                           readonly>
+                    <label class="sg-form-label">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" 
+                           class="sg-form-input" 
+                           value="{{ old('phone', $user->phone ?? '') }}" 
+                           autocomplete="tel"
+                           placeholder="Enter your phone number (optional)">
+                    @error('phone')
+                        <div class="sg-form-error">{{ $message }}</div>
+                    @enderror
                 </div>
 
                 <div class="sg-form-actions">
@@ -355,6 +348,19 @@
             color: white;
             border: 3px solid var(--accent-orange);
             box-shadow: 0 8px 24px rgba(255, 107, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sg-avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .sg-file-input {
+            display: none;
         }
 
         .sg-avatar-upload {
@@ -639,6 +645,34 @@
             strengthBar.style.backgroundColor = colors[strength - 1] || '#EF4444';
             strengthText.textContent = texts[strength - 1] || 'Password strength';
             strengthText.style.color = colors[strength - 1] || '#9CA3AF';
+        }
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Validate file size (2MB)
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('File size must be less than 2MB');
+                    event.target.value = '';
+                    return;
+                }
+
+                // Validate file type
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    alert('Invalid file type. Please upload JPG, JPEG, PNG, or WEBP.');
+                    event.target.value = '';
+                    return;
+                }
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const avatarDisplay = document.getElementById('avatar-display');
+                    avatarDisplay.innerHTML = '<img src="' + e.target.result + '" alt="Profile Photo" class="sg-avatar-img">';
+                };
+                reader.readAsDataURL(file);
+            }
         }
     </script>
 </x-app-layout>

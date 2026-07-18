@@ -47,7 +47,7 @@ class SyncCountriesJob implements ShouldQueue
                 $progress->save();
             }
             
-            $exitCode = Artisan::call('countries:sync', [
+            $exitCode = Artisan::call('sync:countries', [
                 '--batch' => $this->batchNumber,
                 '--total-batches' => $this->totalBatches,
             ]);

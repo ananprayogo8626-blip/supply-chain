@@ -29,13 +29,13 @@ class SyncWorldData extends Command
         $this->info('Starting global supply chain data sync...');
 
         $commands = [
-            'countries:sync' => 'Importing Countries Data...',
-            'economy:sync' => 'Syncing Economic Data...',
-            'weather:sync' => 'Syncing Weather Data...',
-            'currency:sync' => 'Syncing Exchange Rates...',
-            'ports:import' => 'Importing Ports Data...',
-            'news:sync' => 'Syncing News Data...',
-            'risk:calculate' => 'Calculating Risk Scores...',
+            'sync:countries' => 'Importing Countries Data...',
+            'sync:economy' => 'Syncing Economic Data...',
+            'sync:weather' => 'Syncing Weather Data...',
+            'sync:currency' => 'Syncing Exchange Rates...',
+            'sync:ports' => 'Importing Ports Data...',
+            'sync:news' => 'Syncing News Data...',
+            'sync:risk' => 'Calculating Risk Scores...',
         ];
 
         foreach ($commands as $command => $description) {

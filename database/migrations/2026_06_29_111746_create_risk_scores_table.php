@@ -33,7 +33,8 @@ return new class extends Migration
             $table->enum('risk_level', [
                 'Low',
                 'Medium',
-                'High'
+                'High',
+                'Critical'
             ])->default('Low');
 
             // Catatan hasil analisis

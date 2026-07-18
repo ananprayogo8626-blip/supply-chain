@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Country;
 use App\Models\WeatherData;
+use App\Models\ActivityLog;
 use App\Services\OpenMeteoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WeatherController extends Controller
 {
@@ -19,9 +22,25 @@ class WeatherController extends Controller
     /**
      * Menampilkan semua data cuaca
      */
-    public function index()
+    public function index(Request $request)
     {
-        $weather = WeatherData::with('country')->latest()->get();
+        $query = WeatherData::with('country');
+
+        // Search
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('country', function($q) use ($search) {
+                $q->where('country_name', 'like', "%{$search}%")
+                  ->orWhere('country_code', 'like', "%{$search}%");
+            });
+        }
+
+        // Trash filter
+        if ($request->status === 'trash') {
+            $query->onlyTrashed();
+        }
+
+        $weather = $query->latest()->paginate(15)->withQueryString();
 
         return view('weather.index', compact('weather'));
     }
@@ -32,7 +51,6 @@ class WeatherController extends Controller
     public function create()
     {
         $countries = Country::orderBy('country_name')->get();
-
         return view('weather.create', compact('countries'));
     }
 
@@ -53,15 +71,27 @@ class WeatherController extends Controller
             'storm_risk' => 'required|integer|min:0|max:100',
         ]);
 
-        $weather = WeatherData::create($request->all());
-        $country = Country::find($request->country_id);
-        if ($country) {
-            app(\App\Services\RiskScoreEngine::class)->calculate($country);
-        }
+        DB::beginTransaction();
+        try {
+            $weather = WeatherData::create($request->all());
+            $country = Country::find($request->country_id);
+            if ($country) {
+                app(\App\Services\RiskScoreEngine::class)->calculate($country);
+            }
+            DB::commit();
 
-        return redirect()
-            ->route('weather.index')
-            ->with('success', 'Data cuaca berhasil ditambahkan.');
+            ActivityLog::log('Create', "Created Weather data for Country ID: {$weather->country_id} (#{$weather->id})", $weather);
+
+            return redirect()
+                ->route('weather.index')
+                ->with('success', 'Data cuaca berhasil ditambahkan.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("WeatherController@store error: " . $e->getMessage());
+            return redirect()
+                ->route('weather.index')
+                ->with('error', 'Gagal menambahkan data cuaca: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -70,7 +100,6 @@ class WeatherController extends Controller
     public function sync(Country $country)
     {
         try {
-            // Use existing coordinates, fallback to geocoding if missing
             $lat = $country->latitude;
             $lng = $country->longitude;
 
@@ -95,7 +124,7 @@ class WeatherController extends Controller
                     ->with('error', 'Gagal mengambil data dari Open-Meteo API.');
             }
 
-            WeatherData::updateOrCreate(
+            $weather = WeatherData::updateOrCreate(
                 [
                     'country_id' => $country->id,
                 ],
@@ -113,11 +142,13 @@ class WeatherController extends Controller
 
             app(\App\Services\RiskScoreEngine::class)->calculate($country);
 
+            ActivityLog::log('Sync', "Synced Weather data for Country: {$country->country_name} (#{$weather->id})", $weather);
+
             return redirect()
                 ->route('weather.index')
                 ->with('success', 'Data cuaca berhasil diambil dari Open-Meteo API.');
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("WeatherController@sync error for country {$country->id}: " . $e->getMessage(), [
+            Log::error("WeatherController@sync error for country {$country->id}: " . $e->getMessage(), [
                 'exception' => $e
             ]);
             return redirect()->route('weather.index')
@@ -132,16 +163,19 @@ class WeatherController extends Controller
     {
         try {
             \App\Jobs\ImportWeatherJob::dispatch();
-
-            return redirect()
-                ->route('weather.index')
-                ->with('success', 'Weather import job dispatched. Processing in background.');
+            ActivityLog::log('Sync', 'Dispatched bulk Weather import job.');
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Weather import job dispatched. Processing in background.',
+            ]);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("WeatherController@import error: " . $e->getMessage(), [
+            Log::error("WeatherController@import error: " . $e->getMessage(), [
                 'exception' => $e
             ]);
-            return redirect()->route('weather.index')
-                ->with('error', 'Terjadi kesalahan saat menyinkronkan cuaca: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat menyinkronkan cuaca: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -151,8 +185,16 @@ class WeatherController extends Controller
     public function edit(WeatherData $weather)
     {
         $countries = Country::orderBy('country_name')->get();
-
         return view('weather.edit', compact('weather', 'countries'));
+    }
+
+    /**
+     * Show weather detail page
+     */
+    public function show(WeatherData $weather)
+    {
+        $weather->load('country');
+        return view('weather.show', compact('weather'));
     }
 
     /**
@@ -172,14 +214,26 @@ class WeatherController extends Controller
             'storm_risk' => 'required|integer|min:0|max:100',
         ]);
 
-        $weather->update($request->all());
-        if ($weather->country) {
-            app(\App\Services\RiskScoreEngine::class)->calculate($weather->country);
-        }
+        DB::beginTransaction();
+        try {
+            $weather->update($request->all());
+            if ($weather->country) {
+                app(\App\Services\RiskScoreEngine::class)->calculate($weather->country);
+            }
+            DB::commit();
 
-        return redirect()
-            ->route('weather.index')
-            ->with('success', 'Data cuaca berhasil diperbarui.');
+            ActivityLog::log('Update', "Updated Weather data for Country ID: {$weather->country_id} (#{$weather->id})", $weather);
+
+            return redirect()
+                ->route('weather.index')
+                ->with('success', 'Data cuaca berhasil diperbarui.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("WeatherController@update error: " . $e->getMessage());
+            return redirect()
+                ->route('weather.index')
+                ->with('error', 'Gagal memperbarui data cuaca: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -189,8 +243,138 @@ class WeatherController extends Controller
     {
         $weather->delete();
 
+        ActivityLog::log('Delete', "Soft-deleted Weather data ID: {$weather->id}", $weather);
+
         return redirect()
             ->route('weather.index')
             ->with('success', 'Data cuaca berhasil dihapus.');
+    }
+
+    /**
+     * Restore data cuaca
+     */
+    public function restore($id)
+    {
+        $weather = WeatherData::onlyTrashed()->findOrFail($id);
+        $weather->restore();
+
+        ActivityLog::log('Restore', "Restored Weather data ID: {$weather->id}", $weather);
+
+        return redirect()
+            ->route('weather.index')
+            ->with('success', 'Data cuaca berhasil dipulihkan.');
+    }
+
+    /**
+     * Export weather to CSV
+     */
+    public function exportCsv()
+    {
+        $weather = WeatherData::with('country')->get();
+        $headers = ['ID', 'Country Name', 'Temperature (°C)', 'Wind Speed (km/h)', 'Rainfall (mm)', 'Humidity (%)', 'Weather Condition', 'Storm Risk (%)'];
+
+        return \App\Services\ExportImportHelper::exportCsv('weather_data', $headers, $weather, function($w) {
+            return [
+                $w->id,
+                $w->country->country_name ?? '—',
+                $w->temperature,
+                $w->wind_speed,
+                $w->rainfall,
+                $w->humidity,
+                $w->weather_condition,
+                $w->storm_risk,
+            ];
+        });
+    }
+
+    /**
+     * Export weather to PDF
+     */
+    public function exportPdf()
+    {
+        $weather = WeatherData::with('country')->get();
+        $headers = ['ID', 'Country', 'Temp', 'Wind Speed', 'Rainfall', 'Humidity', 'Condition', 'Storm Risk'];
+        $rows = [];
+        foreach ($weather as $w) {
+            $rows[] = [
+                $w->id,
+                $w->country->country_name ?? '—',
+                $w->temperature . '°C',
+                $w->wind_speed . ' km/h',
+                $w->rainfall . ' mm',
+                $w->humidity . '%',
+                $w->weather_condition,
+                $w->storm_risk . '%',
+            ];
+        }
+
+        return \App\Services\ExportImportHelper::exportPdf('Weather Database', $headers, $rows);
+    }
+
+    /**
+     * Import weather from CSV
+     */
+    public function importCsv(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:2048',
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $handle = fopen($file->getRealPath(), 'r');
+            
+            // Skip BOM if present
+            $bom = fread($handle, 3);
+            if ($bom !== "\xEF\xBB\xBF") {
+                rewind($handle);
+            }
+
+            $header = fgetcsv($handle);
+            $imported = 0;
+            $updated = 0;
+
+            while (($row = fgetcsv($handle)) !== false) {
+                if (count($row) < 3) continue;
+
+                $countryCode = $row[1] ?? ''; // assuming country code is in column index 1
+                $temperature = $row[2] ?? 0;
+                $wind = $row[3] ?? 0;
+                $rain = $row[4] ?? 0;
+                $humidity = $row[5] ?? 0;
+                $condition = $row[6] ?? 'Sunny';
+                $storm = $row[7] ?? 0;
+
+                $country = Country::where('country_code', $countryCode)->first();
+                if (!$country) continue;
+
+                $w = WeatherData::withTrashed()->updateOrCreate(
+                    ['country_id' => $country->id],
+                    [
+                        'temperature' => $temperature,
+                        'wind_speed' => $wind,
+                        'rainfall' => $rain,
+                        'humidity' => $humidity,
+                        'weather_condition' => $condition,
+                        'storm_risk' => $storm,
+                    ]
+                );
+
+                if ($w->wasRecentlyCreated) {
+                    $imported++;
+                } else {
+                    $w->restore();
+                    $updated++;
+                }
+            }
+
+            fclose($handle);
+
+            ActivityLog::log('Import', "Imported {$imported} weather records, updated {$updated} records from CSV.");
+
+            return back()->with('success', "CSV Import Success: {$imported} new weather records created, {$updated} updated.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to import CSV: ' . $e->getMessage());
+        }
     }
 }

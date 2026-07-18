@@ -41,7 +41,7 @@ class SyncNewsJob implements ShouldQueue
                 $progress->save();
             }
             
-            $exitCode = Artisan::call('news:sync', [
+            $exitCode = Artisan::call('sync:news', [
                 '--batch' => $this->batchNumber,
                 '--total-batches' => $this->totalBatches,
             ]);
@@ -56,9 +56,13 @@ class SyncNewsJob implements ShouldQueue
                     $this->batchNumber
                 );
                 
-                // Check if this is the last batch of news stage - mark as completed
+                // Check if this is the last batch of news stage - trigger risk calculation
                 if ($this->batchNumber === $this->totalBatches) {
                     $progress->markAsCompleted();
+                    
+                    // Trigger risk score calculation after all syncs complete
+                    Log::info("All syncs completed, triggering risk score calculation");
+                    \App\Jobs\CalculateRiskScoresJob::dispatch();
                 }
             }
 

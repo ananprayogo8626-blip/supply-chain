@@ -3,22 +3,23 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Database\QueryException;
 use App\Models\Country;
-use App\Models\CurrencyData;
 use App\Services\ExchangeRateService;
+use App\Repositories\CurrencyRepository;
 use Illuminate\Support\Facades\Log;
 
 class CurrencySync extends Command
 {
-    protected $signature = 'currency:sync {--batch=1} {--total-batches=10}';
-    protected $description = 'Sinkronisasi data nilai tukar mata uang dari ExchangeRate API';
+    protected $signature = 'sync:currency {--batch=1} {--total-batches=10}';
+    protected $description = 'Sync currency exchange rates from ExchangeRate API';
 
-    public function handle(ExchangeRateService $exchangeService)
+    public function handle(ExchangeRateService $exchangeService, CurrencyRepository $currencyRepo)
     {
         $this->info('=============================================');
         $this->info('SYNC EXCHANGE RATES FROM API');
         $this->info('=============================================');
+        
+        Log::info('CurrencySync: [Sync Started]');
 
         $batch = (int) $this->option('batch');
         $totalBatches = (int) $this->option('total-batches');
@@ -33,7 +34,9 @@ class CurrencySync extends Command
             $rates = $ratesData['rates'];
             $this->info('Successfully fetched exchange rates from API.');
         } else {
-            $this->warn('ExchangeRate API failed. Using fallback rates dictionary (Target 20).');
+            $this->warn('ExchangeRate API failed. Using fallback rates dictionary.');
+            Log::error('CurrencySync: [API Error] ExchangeRate API failed to return rates. Using fallback.');
+            
             $rates = [
                 'IDR' => 16250.0, 'EUR' => 0.92, 'JPY' => 158.5, 'GBP' => 0.78, 'AUD' => 1.51,
                 'CAD' => 1.37, 'CHF' => 0.89, 'CNY' => 7.25, 'HKD' => 7.81, 'SGD' => 1.35,
@@ -49,64 +52,56 @@ class CurrencySync extends Command
         try {
             $offset = ($batch - 1) * $batchSize;
             $countries = Country::offset($offset)->limit($batchSize)->get();
-        } catch (QueryException $e) {
-            $this->error('Gagal terhubung ke database. Pastikan MySQL/XAMPP sudah berjalan.');
+        } catch (\Exception $e) {
+            $this->error('Failed to connect to database. Ensure MySQL/XAMPP is running.');
+            Log::error("CurrencySync: [Sync Failed] Database connection error: " . $e->getMessage());
             return Command::FAILURE;
         }
 
         if ($countries->count() == 0) {
             $this->warn('No countries in this batch.');
+            Log::info('CurrencySync: [Sync Finished] No countries to process in this batch.');
             return Command::SUCCESS;
         }
-
-        // Fetch existing currency data for this batch to prevent N+1 query
-        $countryIds = $countries->pluck('id');
-        $existingCurrencyData = CurrencyData::whereIn('country_id', $countryIds)
-            ->get()
-            ->keyBy(function($item) {
-                return $item->country_id . '_' . $item->currency_code;
-            });
 
         $bar = $this->output->createProgressBar($countries->count());
         $bar->start();
 
+        $insertCount = 0;
+        $updateCount = 0;
+        $skipCount = 0;
+        $errorCount = 0;
+
         foreach ($countries as $country) {
             try {
-                // A country can have multiple currency codes comma-separated, e.g. "USD, EUR"
-                // Let's take the first currency code
                 $currencyCodes = array_map('trim', explode(',', $country->currency ?? ''));
                 $currencyCode = $currencyCodes[0] ?? null;
 
                 if ($currencyCode) {
                     $newRate = (float) ($rates[$currencyCode] ?? (rand(5, 150) / 10));
 
-                    // Find old rate to calculate change percentage (optimized to prevent N+1)
-                    $key = $country->id . '_' . $currencyCode;
-                    $existing = $existingCurrencyData->get($key);
+                    $dataToUpdate = [
+                        'currency_name' => $currencyCode,
+                        'base_currency' => 'USD',
+                        'exchange_rate' => $newRate,
+                        'last_updated' => now(),
+                    ];
 
-                    $oldRate = $existing ? (float) $existing->exchange_rate : 0.0;
-                    $changePercentage = 0.0;
-                    if ($oldRate > 0) {
-                        $changePercentage = (($newRate - $oldRate) / $oldRate) * 100;
+                    // Use repository mapping inside a transaction
+                    $status = $currencyRepo->updateOrCreateRate($country->id, $currencyCode, $dataToUpdate);
+
+                    if ($status === 'inserted') {
+                        $insertCount++;
+                    } elseif ($status === 'updated') {
+                        $updateCount++;
+                    } else {
+                        $skipCount++;
+                        Log::info("CurrencySync: [Duplicate Skipped] Currency for {$country->country_name} has no changes.");
                     }
-
-                    CurrencyData::updateOrCreate(
-                        [
-                            'country_id' => $country->id,
-                            'currency_code' => $currencyCode,
-                        ],
-                        [
-                            'currency_name' => $currencyCode, // Fallback to code as name
-                            'base_currency' => 'USD',
-                            'exchange_rate' => $newRate,
-                            'change_percentage' => $changePercentage,
-                            'last_updated' => now(),
-                        ]
-                    );
                 }
             } catch (\Exception $e) {
-                $this->error("Failed to sync currency for {$country->country_name}: " . $e->getMessage());
-                Log::error("CurrencySync error for {$country->country_code}: " . $e->getMessage());
+                $errorCount++;
+                Log::error("CurrencySync: [Sync Failed] Failed for {$country->country_name}: " . $e->getMessage());
             }
 
             $bar->advance();
@@ -114,9 +109,11 @@ class CurrencySync extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->info('=============================================');
-        $this->info('SYNC EXCHANGE RATES BATCH COMPLETED');
-        $this->info('=============================================');
+
+        $this->info("Insert: {$insertCount}, Update: {$updateCount}, Skipped: {$skipCount}, Errors: {$errorCount}");
+
+        Log::info("CurrencySync: [Total Insert: {$insertCount}] [Total Update: {$updateCount}]");
+        Log::info('CurrencySync: [Sync Finished]');
 
         return Command::SUCCESS;
     }

@@ -43,6 +43,8 @@ class ImportWeatherJob implements ShouldQueue
             $skippedCount = 0;
             $processedCount = 0;
 
+            Log::info("ImportWeatherJob: Starting weather import for {$this->progress->total} countries");
+
             // Process countries in chunks of 20
             Country::chunk(20, function ($countries) use ($weatherService, &$successCount, &$errorCount, &$skippedCount, &$processedCount) {
                 foreach ($countries as $country) {
@@ -54,55 +56,67 @@ class ImportWeatherJob implements ShouldQueue
                         $lng = $country->longitude;
 
                         if ($lat === null || $lng === null) {
+                            Log::info("ImportWeatherJob: Geocoding coordinates for {$country->country_name} ({$country->country_code})");
                             $geocode = app(\App\Services\GeocodingService::class)->getCoordinates($country->capital, $country->country_code);
                             if ($geocode) {
                                 $lat = $geocode['latitude'];
                                 $lng = $geocode['longitude'];
+                                // Update country with coordinates
+                                $country->update(['latitude' => $lat, 'longitude' => $lng]);
                             }
                         }
 
                         if ($lat === null || $lng === null) {
                             $skippedCount++;
-                            Log::warning("ImportWeatherJob: Skipped country {$country->id} - no coordinates");
+                            Log::warning("ImportWeatherJob: Skipped country {$country->country_name} ({$country->country_code}) - no coordinates available");
                             $this->updateProgress($processedCount, $successCount, $errorCount, $skippedCount);
                             continue;
                         }
 
-                        $data = $weatherService->getWeather((float) $lat, (float) $lng);
+                        // Use retry for individual country processing with transaction
+                        $data = retry(2, function() use ($weatherService, $lat, $lng, $country) {
+                            return $weatherService->getWeather((float) $lat, (float) $lng);
+                        }, 500);
 
                         if (!$data) {
                             $errorCount++;
-                            Log::error("ImportWeatherJob: Failed to get weather data for country {$country->id}");
+                            Log::error("ImportWeatherJob: Failed to get weather data for {$country->country_name} ({$country->country_code})");
                             $this->updateProgress($processedCount, $successCount, $errorCount, $skippedCount);
                             continue;
                         }
 
-                        WeatherData::updateOrCreate(
-                            [
-                                'country_id' => $country->id,
-                            ],
-                            [
-                                'temperature' => $data['temperature'],
-                                'wind_speed' => $data['wind_speed'],
-                                'rainfall' => $data['rainfall'],
-                                'humidity' => $data['humidity'],
-                                'cloud' => $data['cloud'] ?? null,
-                                'pressure' => $data['pressure'] ?? null,
-                                'weather_condition' => $data['weather_condition'],
-                                'storm_risk' => $data['storm_risk'],
-                            ]
-                        );
+                        // Use transaction to ensure data integrity
+                        \Illuminate\Support\Facades\DB::transaction(function() use ($country, $data) {
+                            WeatherData::updateOrCreate(
+                                [
+                                    'country_id' => $country->id,
+                                ],
+                                [
+                                    'temperature' => $data['temperature'],
+                                    'wind_speed' => $data['wind_speed'],
+                                    'rainfall' => $data['rainfall'],
+                                    'humidity' => $data['humidity'],
+                                    'cloud' => $data['cloud'] ?? null,
+                                    'pressure' => $data['pressure'] ?? null,
+                                    'weather_condition' => $data['weather_condition'],
+                                    'weather_code' => $data['weather_code'] ?? 0,
+                                    'storm_risk' => $data['storm_risk'],
+                                ]
+                            );
 
-                        // Calculate risk score for this country
-                        app(\App\Services\RiskScoreEngine::class)->calculate($country);
+                            // Calculate risk score for this country
+                            app(\App\Services\RiskScoreEngine::class)->calculate($country);
+                        });
 
                         $successCount++;
+                        Log::info("ImportWeatherJob: Successfully processed weather for {$country->country_name} ({$country->country_code}) - Temp: {$data['temperature']}°C, Condition: {$data['weather_condition']}");
                         $this->updateProgress($processedCount, $successCount, $errorCount, $skippedCount);
 
                     } catch (\Throwable $e) {
                         $errorCount++;
-                        Log::error("ImportWeatherJob: Error processing country {$country->id}: " . $e->getMessage(), [
-                            'exception' => $e
+                        Log::error("ImportWeatherJob: Error processing country {$country->country_name} ({$country->country_code}): " . $e->getMessage(), [
+                            'exception' => $e,
+                            'country_id' => $country->id
                         ]);
                         $this->updateProgress($processedCount, $successCount, $errorCount, $skippedCount);
                         continue;
@@ -115,6 +129,10 @@ class ImportWeatherJob implements ShouldQueue
                 'percentage' => 100,
                 'finished_at' => now(),
             ]);
+
+            \App\Jobs\CalculateRiskScoresJob::dispatch();
+
+            Log::info("ImportWeatherJob: Weather import completed. Success: {$successCount}, Errors: {$errorCount}, Skipped: {$skippedCount}");
 
         } catch (\Throwable $e) {
             Log::error("ImportWeatherJob error: " . $e->getMessage(), [

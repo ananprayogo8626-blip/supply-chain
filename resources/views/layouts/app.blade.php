@@ -12,6 +12,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Default to dark mode/navy theme
         document.documentElement.classList.add('dark-mode');
@@ -54,6 +55,23 @@
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Dashboard</span>
                 </a>
 
+                <a href="{{ route('watchlists.index') }}" class="sg-nav-link {{ request()->routeIs('watchlists.*') ? 'active' : '' }}" id="nav-watchlist" :title="sidebarCollapsed ? 'Watchlist' : ''">
+                    <i data-lucide="list"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Watchlist</span>
+                </a>
+
+                <a href="{{ route('comparison') }}" class="sg-nav-link {{ request()->routeIs('comparison') ? 'active' : '' }}" id="nav-compare" :title="sidebarCollapsed ? 'Compare' : ''">
+                    <i data-lucide="git-compare"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Compare</span>
+                </a>
+
+                <a href="{{ route('map') }}" class="sg-nav-link {{ request()->routeIs('map') ? 'active' : '' }}" id="nav-map" :title="sidebarCollapsed ? 'Global Map' : ''">
+                    <i data-lucide="map"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Global Map</span>
+                </a>
+
+                <div class="sg-nav-section" x-show="!sidebarCollapsed">Risk Intelligence</div>
+
                 <a href="{{ route('countries.index') }}" class="sg-nav-link {{ request()->routeIs('countries.*') ? 'active' : '' }}" id="nav-countries" :title="sidebarCollapsed ? 'Countries' : ''">
                     <i data-lucide="globe"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Countries</span>
@@ -84,33 +102,57 @@
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">News & Events</span>
                 </a>
 
-                <div class="sg-nav-section" x-show="!sidebarCollapsed">Analytics</div>
-
                 <a href="{{ route('risk-scores.index') }}" class="sg-nav-link {{ request()->routeIs('risk-scores.*') ? 'active' : '' }}" id="nav-risk" :title="sidebarCollapsed ? 'Risk Scores' : ''">
                     <i data-lucide="shield-check"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Risk Scores</span>
                 </a>
 
-                <a href="{{ route('watchlists.index') }}" class="sg-nav-link {{ request()->routeIs('watchlists.*') ? 'active' : '' }}" id="nav-watchlist" :title="sidebarCollapsed ? 'Watchlist' : ''">
-                    <i data-lucide="list"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Watchlist</span>
+                @if(auth()->check() && auth()->user()->hasAdminAccess())
+                <div class="sg-nav-section" x-show="!sidebarCollapsed">Admin Panel</div>
+
+                <a href="{{ route('admin.dashboard') }}" class="sg-nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" id="nav-admin-dashboard" :title="sidebarCollapsed ? 'Admin Dashboard' : ''">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Dashboard Admin</span>
                 </a>
 
-                <a href="{{ route('comparison') }}" class="sg-nav-link {{ request()->routeIs('comparison') ? 'active' : '' }}" id="nav-compare" :title="sidebarCollapsed ? 'Compare' : ''">
-                    <i data-lucide="git-compare"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Compare</span>
+                <a href="{{ route('users.index') }}" class="sg-nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" id="nav-users" :title="sidebarCollapsed ? 'Users' : ''">
+                    <i data-lucide="users"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Kelola User</span>
                 </a>
 
-                <a href="{{ route('map') }}" class="sg-nav-link {{ request()->routeIs('map') ? 'active' : '' }}" id="nav-map" :title="sidebarCollapsed ? 'Global Map' : ''">
-                    <i data-lucide="map"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Global Map</span>
+                <a href="{{ route('admin.api-management') }}" class="sg-nav-link {{ request()->routeIs('admin.api-management') ? 'active' : '' }}" id="nav-api-management" :title="sidebarCollapsed ? 'API Management' : ''">
+                    <i data-lucide="cpu"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">API Management</span>
                 </a>
+
+                <a href="{{ route('admin.currency-api') }}" class="sg-nav-link {{ request()->routeIs('admin.currency-api') ? 'active' : '' }}" id="nav-currency-api" :title="sidebarCollapsed ? 'Currency API' : ''">
+                    <i data-lucide="coins"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Currency API</span>
+                </a>
+
+                <a href="{{ route('admin.risk-intelligence') }}" class="sg-nav-link {{ request()->routeIs('admin.risk-intelligence') ? 'active' : '' }}" id="nav-risk-intelligence" :title="sidebarCollapsed ? 'Risk Intelligence' : ''">
+                    <i data-lucide="shield-alert"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Risk Intelligence</span>
+                </a>
+
+                @if(auth()->user()->isSuperAdmin())
+                <a href="{{ route('admin.logs') }}" class="sg-nav-link {{ request()->routeIs('admin.logs') ? 'active' : '' }}" id="nav-admin-logs" :title="sidebarCollapsed ? 'Logs' : ''">
+                    <i data-lucide="file-text"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Logs (Activity & API)</span>
+                </a>
+
+                <a href="{{ route('settings.index') }}" class="sg-nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" id="nav-settings" :title="sidebarCollapsed ? 'Settings' : ''">
+                    <i data-lucide="settings"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">System Setting</span>
+                </a>
+                @endif
+                @endif
 
                 <div class="sg-nav-section" x-show="!sidebarCollapsed">Account</div>
 
-                <a href="{{ route('profile.edit') }}" class="sg-nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" id="nav-profile" :title="sidebarCollapsed ? 'Settings' : ''">
-                    <i data-lucide="settings"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Settings</span>
+                <a href="{{ route('profile.edit') }}" class="sg-nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" id="nav-profile" :title="sidebarCollapsed ? 'Profile' : ''">
+                    <i data-lucide="user"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Profile</span>
                 </a>
 
                 <form method="POST" action="{{ route('logout') }}" id="logout-form">
@@ -345,8 +387,40 @@
                 didOpen: async () => {
                     lucide.createIcons();
 
-                    // Poll progress every 2 seconds
+                    // Poll progress every 2 seconds with timeout (max 5 minutes)
+                    let pollCount = 0;
+                    const maxPolls = 150; // 150 * 2s = 300s = 5 minutes
                     const pollInterval = setInterval(async () => {
+                        pollCount++;
+                        
+                        // Timeout check
+                        if (pollCount >= maxPolls) {
+                            clearInterval(pollInterval);
+                            setTimeout(() => {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Sync Timeout',
+                                    text: 'Synchronization took longer than expected. Please check the queue status.',
+                                    confirmButtonColor: '#FF6B00',
+                                    background: '#1B2433',
+                                    color: '#F8FAFC',
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Retry',
+                                    confirmButtonText: 'Continue'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        // Continue polling
+                                        pollCount = 0;
+                                        triggerStepSync();
+                                    } else if (result.isDismissed) {
+                                        // Retry sync
+                                        triggerStepSync();
+                                    }
+                                });
+                            }, 300);
+                            return;
+                        }
+
                         try {
                             const res = await fetch('/sync/progress/' + batchId, {
                                 headers: { 'Accept': 'application/json' }
@@ -369,7 +443,7 @@
                             }
 
                             // Update step indicators
-                            const stages = ['countries', 'weather', 'economy', 'currency', 'news'];
+                            const stages = ['countries', 'weather', 'economy', 'currency', 'news', 'risk'];
                             stages.forEach((stage, index) => {
                                 const el = document.getElementById('step-' + stage);
                                 if (el) {
@@ -388,6 +462,24 @@
                             if (json.status === 'completed' || json.progress_percentage >= 100) {
                                 clearInterval(pollInterval);
                                 setTimeout(() => {
+                                    Swal.close();
+                                    
+                                    // Refresh dashboard data if on dashboard page
+                                    if (typeof loadDashboard === 'function') {
+                                        loadDashboard();
+                                    }
+                                    
+                                    // Refresh watchlist if on watchlist page
+                                    if (typeof refreshWatchlist === 'function') {
+                                        refreshWatchlist();
+                                    }
+                                    
+                                    // Refresh compare if on compare page
+                                    if (typeof refreshCompare === 'function') {
+                                        refreshCompare();
+                                    }
+                                    
+                                    // Show success toast
                                     Swal.fire({
                                         toast: true,
                                         position: 'top-end',
@@ -398,14 +490,29 @@
                                         background: '#1B2433',
                                         color: '#F8FAFC'
                                     });
-                                    window.location.reload();
                                 }, 800);
                             }
 
                             // Check if failed
                             if (json.status === 'failed') {
                                 clearInterval(pollInterval);
-                                throw new Error(json.error_message || 'Synchronization failed');
+                                setTimeout(() => {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Sync Failed',
+                                        text: json.error_message || 'Synchronization failed',
+                                        confirmButtonColor: '#FF6B00',
+                                        background: '#1B2433',
+                                        color: '#F8FAFC',
+                                        showCancelButton: true,
+                                        cancelButtonText: 'Cancel',
+                                        confirmButtonText: 'Retry'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            triggerStepSync();
+                                        }
+                                    });
+                                }, 300);
                             }
 
                         } catch (err) {
@@ -417,7 +524,14 @@
                                     text: err.message || 'An error occurred during synchronization.',
                                     confirmButtonColor: '#FF6B00',
                                     background: '#1B2433',
-                                    color: '#F8FAFC'
+                                    color: '#F8FAFC',
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Cancel',
+                                    confirmButtonText: 'Retry'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        triggerStepSync();
+                                    }
                                 });
                             }, 300);
                         }

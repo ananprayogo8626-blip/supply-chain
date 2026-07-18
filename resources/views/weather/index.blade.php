@@ -1,50 +1,138 @@
 <x-app-layout>
 
-    <div class="sg-page-header">
-        <div class="sg-page-header-row">
-            <div>
-                <h1 class="sg-page-title">Weather Monitoring</h1>
-                <p class="sg-page-desc">Real-time weather data for all monitored countries via Open-Meteo API.</p>
-            </div>
-            <div class="sg-data-actions">
-                <a href="{{ route('weather.import') }}"
-                   onclick="return confirm('Import weather data for all countries from Open-Meteo API? This may take a moment.')"
-                   class="sg-btn sg-btn-outline-orange" id="btn-import-weather">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    Import Weather API
-                </a>
-                <a href="{{ route('weather.create') }}" class="sg-btn sg-btn-gradient" id="btn-add-weather">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Add Record
-                </a>
-            </div>
-        </div>
-    </div>
+    <!-- Standardized Header -->
+    <x-crud-header 
+        title="Weather Monitoring"
+        description="Real-time weather data for all monitored countries via Open-Meteo API."
+        icon="cloud-sun"
+        iconColor="text-blue-400"
+    >
+        <a href="#import-section" onclick="document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            Import CSV
+        </a>
+        <a href="{{ route('weather.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Export CSV
+        </a>
+        <a href="{{ route('weather.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            Export PDF
+        </a>
+        <button onclick="startImport('weather')" class="sg-btn sg-btn-sm sg-btn-outline-orange">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            Sync Weather API
+        </button>
+        <a href="{{ route('weather.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add Record
+        </a>
+    </x-crud-header>
 
     @if(session('success'))
-        <div class="sg-flash sg-flash-success mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <div class="sg-flash sg-flash-success">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
             {{ session('success') }}
         </div>
     @endif
     @if(session('error'))
-        <div class="sg-flash sg-flash-error mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="sg-flash sg-flash-error">
+            <i data-lucide="alert-circle" class="w-5 h-5"></i>
             {{ session('error') }}
         </div>
     @endif
 
+    <!-- CSV Import Card -->
+    <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
+        <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import Weather from CSV</h3>
+        <form action="{{ route('weather.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            @csrf
+            <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
+            <button type="submit" class="sg-btn sg-btn-secondary">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Import CSV
+            </button>
+        </form>
+    </div>
+
+    <!-- Weather Statistics Cards -->
+    <div class="sg-weather-stats">
+        <div class="sg-weather-stat-card">
+            <div class="sg-weather-stat-icon">
+                <i data-lucide="thermometer" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <span class="sg-weather-stat-label">Avg Temperature</span>
+                <div class="sg-weather-stat-value">
+                    @php $avgTemp = $weather->avg('temperature'); @endphp
+                    {{ number_format($avgTemp, 1) }}<span class="sg-weather-stat-unit">°C</span>
+                </div>
+            </div>
+        </div>
+        <div class="sg-weather-stat-card">
+            <div class="sg-weather-stat-icon">
+                <i data-lucide="droplets" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <span class="sg-weather-stat-label">Avg Humidity</span>
+                <div class="sg-weather-stat-value">
+                    @php $avgHumidity = $weather->avg('humidity'); @endphp
+                    {{ number_format($avgHumidity, 0) }}<span class="sg-weather-stat-unit">%</span>
+                </div>
+            </div>
+        </div>
+        <div class="sg-weather-stat-card">
+            <div class="sg-weather-stat-icon">
+                <i data-lucide="wind" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <span class="sg-weather-stat-label">Avg Wind Speed</span>
+                <div class="sg-weather-stat-value">
+                    @php $avgWind = $weather->avg('wind_speed'); @endphp
+                    {{ number_format($avgWind, 1) }}<span class="sg-weather-stat-unit">m/s</span>
+                </div>
+            </div>
+        </div>
+        <div class="sg-weather-stat-card">
+            <div class="sg-weather-stat-icon">
+                <i data-lucide="database" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <span class="sg-weather-stat-label">Total Records</span>
+                <div class="sg-weather-stat-value">
+                    {{ $weather->total() }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Standardized Toolbar -->
+    <x-crud-toolbar 
+        searchPlaceholder="Search weather records..."
+        searchValue="{{ request('search') }}"
+        :showRefresh="true"
+        :showExport="false"
+        :showImport="false"
+        :showAdd="false"
+    >
+        <select name="status" onchange="this.form.submit()">
+            <option value="">Active</option>
+            <option value="trash" {{ request('status') === 'trash' ? 'selected' : '' }}>Trash (Deleted)</option>
+        </select>
+    </x-crud-toolbar>
+
+    <!-- Glass Card with Table -->
     <div class="sg-data-card">
         <div class="sg-data-head">
             <div class="sg-data-head-left">
-                <svg fill="none" stroke="#0d9488" viewBox="0 0 24 24" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                <i data-lucide="cloud" class="w-5 h-5 text-blue-400"></i>
                 <h2 class="sg-data-title">Weather Records
-                    <span class="sg-count-badge">{{ $weather->count() }} entries</span>
+                    <span class="sg-count-badge">{{ $weather->total() }} entries</span>
                 </h2>
             </div>
-            <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:6px">
-                <svg fill="none" stroke="#0d9488" viewBox="0 0 24 24" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
-                Data synced from Open-Meteo API (free, no key required)
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4 text-teal-500"></i>
+                Data synced from Open-Meteo API
             </div>
         </div>
 
@@ -53,38 +141,15 @@
                 <thead>
                     <tr>
                         <th style="width:40px" class="sg-td-center">#</th>
-                        <th>
-                            <a href="{{ route('weather.index', array_merge(request()->query(), ['sort' => request('sort') === 'country' ? 'country_desc' : 'country'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px">
-                                Country
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('weather.index', array_merge(request()->query(), ['sort' => request('sort') === 'temperature' ? 'temperature_desc' : 'temperature'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Temperature
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('weather.index', array_merge(request()->query(), ['sort' => request('sort') === 'humidity' ? 'humidity_desc' : 'humidity'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Humidity
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('weather.index', array_merge(request()->query(), ['sort' => request('sort') === 'wind_speed' ? 'wind_speed_desc' : 'wind_speed'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Wind Speed
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
+                        <th>Country</th>
+                        <th class="sg-td-center">Temperature</th>
+                        <th class="sg-td-center">Humidity</th>
+                        <th class="sg-td-center">Wind Speed</th>
                         <th class="sg-td-center">Rain</th>
                         <th class="sg-td-center">Cloud</th>
                         <th class="sg-td-center">Pressure</th>
                         <th>Weather Condition</th>
+                        <th class="sg-td-center">Status</th>
                         <th class="sg-td-center">Update Time</th>
                         <th class="sg-td-center" style="width:160px">Actions</th>
                     </tr>
@@ -92,7 +157,7 @@
                 <tbody>
                     @forelse($weather as $item)
                         <tr>
-                            <td class="sg-td-num">{{ $loop->iteration }}</td>
+                            <td class="sg-td-num">{{ $weather->firstItem() + $loop->index }}</td>
                             <td>
                                 <div class="sg-flag-cell">
                                     @if($item->country && $item->country->flag)
@@ -105,7 +170,7 @@
                             </td>
                             <td class="sg-td-center">
                                 @php $temp = $item->temperature ?? 0; @endphp
-                                <span style="font-weight:700;font-size:15px;color:{{ $temp > 35 ? '#dc2626' : ($temp < 5 ? '#2563eb' : '#0d9488') }}">
+                                <span class="font-bold text-lg {{ $temp > 35 ? 'sg-temp-hot' : ($temp < 5 ? 'sg-temp-cold' : ($temp > 25 ? 'sg-temp-warm' : 'sg-temp-cool')) }}">
                                     {{ $temp }}°C
                                 </span>
                             </td>
@@ -126,42 +191,200 @@
                             <td class="sg-td-center" style="color:#64748b">
                                 {{ $item->pressure ?? '—' }}<span style="font-size:11px;color:#94a3b8">hPa</span>
                             </td>
-                            <td style="font-size:13px;color:#475569">{{ $item->weather_condition ?? '—' }}</td>
+                            <td style="font-size:13px;color:#475569">
+                                @php $condition = strtolower($item->weather_condition ?? ''); @endphp
+                                @if(str_contains($condition, 'sunny') || str_contains($condition, 'clear'))
+                                    <span class="sg-weather-badge sunny">
+                                        <i data-lucide="sun" class="w-3 h-3"></i>
+                                        {{ $item->weather_condition ?? '—' }}
+                                    </span>
+                                @elseif(str_contains($condition, 'cloud') || str_contains($condition, 'overcast'))
+                                    <span class="sg-weather-badge cloudy">
+                                        <i data-lucide="cloud" class="w-3 h-3"></i>
+                                        {{ $item->weather_condition ?? '—' }}
+                                    </span>
+                                @elseif(str_contains($condition, 'rain') || str_contains($condition, 'drizzle'))
+                                    <span class="sg-weather-badge rainy">
+                                        <i data-lucide="cloud-rain" class="w-3 h-3"></i>
+                                        {{ $item->weather_condition ?? '—' }}
+                                    </span>
+                                @elseif(str_contains($condition, 'storm') || str_contains($condition, 'thunder'))
+                                    <span class="sg-weather-badge stormy">
+                                        <i data-lucide="cloud-lightning" class="w-3 h-3"></i>
+                                        {{ $item->weather_condition ?? '—' }}
+                                    </span>
+                                @else
+                                    {{ $item->weather_condition ?? '—' }}
+                                @endif
+                            </td>
+                            <td class="sg-td-center">
+                                @if($item->trashed())
+                                    <span class="sg-badge high">Deleted</span>
+                                @else
+                                    <span class="sg-badge low">Active</span>
+                                @endif
+                            </td>
                             <td class="sg-td-center" style="font-size:12px;color:#94a3b8">
                                 {{ $item->updated_at ? $item->updated_at->format('M d, H:i') : '—' }}
                             </td>
                             <td>
                                 <div class="sg-action-group">
-                                    @if($item->country)
-                                        <a href="{{ route('weather.sync', $item->country->id) }}"
-                                           class="sg-btn sg-btn-xs sg-btn-indigo" id="sync-weather-{{ $item->id }}"
-                                           title="Sync from Open-Meteo API">
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                            Sync
+                                    @if($item->trashed())
+                                        <form action="{{ route('weather.restore', $item->id) }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-teal" title="Restore Weather">
+                                                <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restore
+                                            </button>
+                                        </form>
+                                    @else
+                                        @if($item->country)
+                                            <a href="{{ route('weather.sync', $item->country->id) }}"
+                                               class="sg-btn sg-btn-xs sg-btn-indigo" title="Sync from Open-Meteo API">
+                                                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                                Sync
+                                            </a>
+                                        @endif
+                                        <a href="{{ route('weather.show', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-secondary">
+                                            <i data-lucide="eye" class="w-3 h-3"></i> View
                                         </a>
+                                        <a href="{{ route('weather.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning">Edit</a>
+                                        <form action="{{ route('weather.destroy', $item->id) }}" method="POST" class="sg-delete-form" onsubmit="return confirm('Delete this record?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger">Del</button>
+                                        </form>
                                     @endif
-                                    <a href="{{ route('weather.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning" id="edit-weather-{{ $item->id }}">Edit</a>
-                                    <form action="{{ route('weather.destroy', $item->id) }}" method="POST" style="display:inline" onsubmit="return confirm('Delete this record?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger" id="del-weather-{{ $item->id }}">Del</button>
-                                    </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="sg-empty">
-                                <div class="sg-empty-icon">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                            <td colspan="12">
+                                <div class="sg-empty-state">
+                                    <div class="sg-empty-icon">
+                                        <i data-lucide="cloud" class="w-8 h-8"></i>
+                                    </div>
+                                    <h3>No Weather Data</h3>
+                                    <p>Go to Countries and click Sync for each country, or add records manually.</p>
+                                    <a href="{{ route('countries.index') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+                                        <i data-lucide="globe" class="w-4 h-4"></i>
+                                        Go to Countries
+                                    </a>
                                 </div>
-                                <p>No weather data yet. Go to Countries and click Sync for each country, or add records manually.</p>
-                                <a href="{{ route('countries.index') }}" class="sg-btn sg-btn-teal">Go to Countries</a>
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        @if(method_exists($weather, 'hasPages') && $weather->hasPages())
+            <div class="sg-pagination">
+                <div class="sg-pagination-info">
+                    Showing <strong>{{ $weather->firstItem() }}</strong>–<strong>{{ $weather->lastItem() }}</strong> of <strong>{{ $weather->total() }}</strong> records
+                </div>
+                <div class="sg-pagination-nav">
+                    {{ $weather->withQueryString()->links() }}
+                </div>
+            </div>
+        @endif
     </div>
 
+    <style>
+        .sg-form-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--sg-border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            color: var(--sg-text-primary);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            font-family: inherit;
+        }
+        .sg-form-input:focus {
+            border-color: rgba(255,107,0,0.5);
+            box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
+        }
+    </style>
+
+    <script>
+        function startImport(service) {
+            Swal.fire({
+                title: 'Importing ' + service + ' data...',
+                html: '<div class="progress-container"><div class="progress-bar" id="import-progress-bar" style="width:0%"></div></div><p id="import-status">Initializing...</p>',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                background: '#1B2433',
+                color: '#F8FAFC',
+                didOpen: () => {
+                    fetch('/' + service + '/import/api', { method: 'GET' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                pollProgress(service);
+                            } else {
+                                Swal.close();
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Import Failed',
+                                    text: data.message || 'Failed to start import',
+                                    confirmButtonColor: '#FF6B00',
+                                    background: '#1B2433',
+                                    color: '#F8FAFC'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to start import: ' + err.message,
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        });
+                }
+            });
+        }
+
+        function pollProgress(service) {
+            let timer = setInterval(() => {
+                fetch('/sync/progress/' + service)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'completed' || data.status === 'success') {
+                            clearInterval(timer);
+                            document.getElementById('import-progress-bar').style.width = '100%';
+                            document.getElementById('import-status').innerText = 'Finished successfully!';
+                            setTimeout(() => {
+                                Swal.close();
+                                location.reload();
+                            }, 1000);
+                        } else if (data.status === 'failed' || data.status === 'error') {
+                            clearInterval(timer);
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Import Failed',
+                                text: data.message || 'Sync failed.',
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        } else {
+                            let pct = data.percentage || 0;
+                            document.getElementById('import-progress-bar').style.width = pct + '%';
+                            document.getElementById('import-status').innerText = 'Processing: ' + pct + '%';
+                        }
+                    })
+                    .catch(() => {
+                        // ignore and retry
+                    });
+            }, 1500);
+        }
+    </script>
 </x-app-layout>

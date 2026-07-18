@@ -1,48 +1,95 @@
 <x-app-layout>
 
-    <div class="sg-page-header">
-        <div class="sg-page-header-row">
-            <div>
-                <h1 class="sg-page-title">Currency Exchange</h1>
-                <p class="sg-page-desc">Live exchange rates synced from open.er-api.com (no API key required).</p>
-            </div>
-            <div class="sg-data-actions">
-                <a href="{{ route('currency.import') }}"
-                   onclick="return confirm('Import exchange rate data for all countries from ExchangeRate API? This may take a moment.')"
-                   class="sg-btn sg-btn-outline-orange" id="btn-import-currency">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    Import Exchange Rate API
-                </a>
-                <a href="{{ route('currency.create') }}" class="sg-btn sg-btn-gradient" id="btn-add-currency">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Add Record
-                </a>
-            </div>
-        </div>
-    </div>
+    <!-- Standardized Header -->
+    <x-crud-header 
+        title="Currency Exchange"
+        description="Live exchange rates synced from open.er-api.com (no API key required)."
+        icon="banknote"
+        iconColor="text-amber-500"
+    >
+        <a href="#import-section" onclick="document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            Import CSV
+        </a>
+        <a href="{{ route('currency.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Export CSV
+        </a>
+        <a href="{{ route('currency.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            Export PDF
+        </a>
+        <button onclick="startImport('currency')" class="sg-btn sg-btn-sm sg-btn-outline-orange">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            Sync Exchange API
+        </button>
+        <a href="{{ route('currency.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add Record
+        </a>
+    </x-crud-header>
 
     @if(session('success'))
-        <div class="sg-flash sg-flash-success mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <div class="sg-flash sg-flash-success">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
             {{ session('success') }}
         </div>
     @endif
     @if(session('error'))
-        <div class="sg-flash sg-flash-error mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="sg-flash sg-flash-error">
+            <i data-lucide="alert-circle" class="w-5 h-5"></i>
             {{ session('error') }}
         </div>
     @endif
 
+    @if($showWarning ?? false)
+        <div class="sg-flash sg-flash-error">
+            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            Latest exchange rate data unavailable. Displaying cached data.
+        </div>
+    @endif
+
+    <!-- CSV Import Card -->
+    <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
+        <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import Currency from CSV</h3>
+        <form action="{{ route('currency.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            @csrf
+            <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
+            <button type="submit" class="sg-btn sg-btn-secondary">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Import CSV
+            </button>
+        </form>
+    </div>
+
+    <!-- Standardized Toolbar -->
+    <x-crud-toolbar 
+        searchPlaceholder="Search currency records..."
+        searchValue="{{ request('search') }}"
+        :showRefresh="true"
+        :showExport="false"
+        :showImport="false"
+        :showAdd="false"
+    >
+        <select name="status" onchange="this.form.submit()">
+            <option value="">Active</option>
+            <option value="trash" {{ request('status') === 'trash' ? 'selected' : '' }}>Trash (Deleted)</option>
+        </select>
+    </x-crud-toolbar>
+
+    <!-- Glass Card with Table -->
     <div class="sg-data-card">
         <div class="sg-data-head">
             <div class="sg-data-head-left">
-                <svg fill="none" stroke="#d97706" viewBox="0 0 24 24" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <i data-lucide="banknote" class="w-5 h-5 text-amber-500"></i>
                 <h2 class="sg-data-title">Exchange Rate Records
-                    <span class="sg-count-badge">{{ method_exists($currency,'total') ? $currency->total() : $currency->count() }} entries</span>
+                    <span class="sg-count-badge">{{ $currency->total() }} entries</span>
                 </h2>
             </div>
-            <div style="font-size:12px;color:#64748b">Source: ExchangeRate API (open.er-api.com)</div>
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+                <i data-lucide="globe" class="w-4 h-4 text-blue-400"></i>
+                Source: ExchangeRate API
+            </div>
         </div>
 
         <div style="overflow-x:auto">
@@ -51,45 +98,50 @@
                     <tr>
                         <th style="width:40px" class="sg-td-center">#</th>
                         <th>
-                            <a href="{{ route('currency.index', array_merge(request()->query(), ['sort' => request('sort') === 'currency_code' ? 'currency_code_desc' : 'currency_code'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px">
+                            <a href="{{ route('currency.index', ['sort' => 'currency_code', 'order' => request('order') === 'asc' ? 'desc' : 'asc', 'search' => request('search')]) }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px">
                                 Currency
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                @if(request('sort') === 'currency_code')
+                                    <i data-lucide="{{ request('order') === 'asc' ? 'arrow-up' : 'arrow-down' }}" class="w-3 h-3"></i>
+                                @endif
                             </a>
                         </th>
                         <th>
-                            <a href="{{ route('currency.index', array_merge(request()->query(), ['sort' => request('sort') === 'country' ? 'country_desc' : 'country'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px">
+                            <a href="{{ route('currency.index', ['sort' => 'country', 'order' => request('order') === 'asc' ? 'desc' : 'asc', 'search' => request('search')]) }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px">
                                 Country
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                @if(request('sort') === 'country')
+                                    <i data-lucide="{{ request('order') === 'asc' ? 'arrow-up' : 'arrow-down' }}" class="w-3 h-3"></i>
+                                @endif
                             </a>
                         </th>
                         <th class="sg-td-right">Buy</th>
                         <th class="sg-td-right">Sell</th>
                         <th class="sg-td-right">
-                            <a href="{{ route('currency.index', array_merge(request()->query(), ['sort' => request('sort') === 'exchange_rate' ? 'exchange_rate_desc' : 'exchange_rate'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:flex-end">
+                            <a href="{{ route('currency.index', ['sort' => 'exchange_rate', 'order' => request('order') === 'asc' ? 'desc' : 'asc', 'search' => request('search')]) }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px;justify-content:flex-end;width:100%">
                                 Rate
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                @if(request('sort') === 'exchange_rate')
+                                    <i data-lucide="{{ request('order') === 'asc' ? 'arrow-up' : 'arrow-down' }}" class="w-3 h-3"></i>
+                                @endif
                             </a>
                         </th>
+                        <th class="sg-td-center">Change</th>
+                        <th class="sg-td-center">Status</th>
                         <th class="sg-td-center">
-                            <a href="{{ route('currency.index', array_merge(request()->query(), ['sort' => request('sort') === 'change_percentage' ? 'change_percentage_desc' : 'change_percentage'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Change
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                            <a href="{{ route('currency.index', ['sort' => 'last_updated', 'order' => request('order') === 'asc' ? 'desc' : 'asc', 'search' => request('search')]) }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px;justify-content:center;width:100%">
+                                Last Update
+                                @if(request('sort') === 'last_updated' || !request('sort'))
+                                    <i data-lucide="{{ request('order', 'desc') === 'asc' ? 'arrow-up' : 'arrow-down' }}" class="w-3 h-3"></i>
+                                @endif
                             </a>
                         </th>
-                        <th class="sg-td-center">Last Update</th>
                         <th class="sg-td-center" style="width:140px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($currency as $item)
                         <tr>
-                            <td class="sg-td-num">{{ $loop->iteration }}</td>
+                            <td class="sg-td-num">{{ $currency->firstItem() + $loop->index }}</td>
                             <td>
-                                <span class="sg-code-badge" title="{{ $item->currency_name ?? $item->currency_code }}">{{ $item->currency_code }} ({{ $item->symbol }})</span>
+                                <span class="sg-code-badge" title="{{ $item->currency_name ?? $item->currency_code }}">{{ $item->currency_code }}</span>
                                 <span style="font-size:11px;color:#94a3b8;margin-left:4px">{{ $item->currency_name ?? '' }}</span>
                             </td>
                             <td>
@@ -114,11 +166,24 @@
                             <td class="sg-td-center">
                                 @php $chg = (float)($item->change_percentage ?? 0); @endphp
                                 @if(abs($chg) < 0.001)
-                                    <span style="color:#64748b;font-size:13px">→ 0.00%</span>
+                                    <span class="text-slate-400 text-sm">→ 0.00%</span>
                                 @elseif($chg > 0)
-                                    <span style="color:#16a34a;font-weight:700;font-size:13px">↗ +{{ number_format($chg, 2) }}%</span>
+                                    <span class="text-green-400 font-bold text-sm flex items-center justify-center gap-1">
+                                        <i data-lucide="trending-up" class="w-3 h-3"></i>
+                                        +{{ number_format($chg, 2) }}%
+                                    </span>
                                 @else
-                                    <span style="color:#dc2626;font-weight:700;font-size:13px">↘ {{ number_format($chg, 2) }}%</span>
+                                    <span class="text-red-400 font-bold text-sm flex items-center justify-center gap-1">
+                                        <i data-lucide="trending-down" class="w-3 h-3"></i>
+                                        {{ number_format($chg, 2) }}%
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="sg-td-center">
+                                @if($item->trashed())
+                                    <span class="sg-badge high">Deleted</span>
+                                @else
+                                    <span class="sg-badge low">Active</span>
                                 @endif
                             </td>
                             <td class="sg-td-center" style="font-size:12px;color:#94a3b8;white-space:nowrap">
@@ -126,35 +191,162 @@
                             </td>
                             <td>
                                 <div class="sg-action-group">
-                                    @if($item->country)
-                                        <a href="{{ route('currency.sync', $item->country->id) }}"
-                                           class="sg-btn sg-btn-xs sg-btn-indigo" id="sync-curr-{{ $item->id }}">
-                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                            Sync
+                                    @if($item->trashed())
+                                        <form action="{{ route('currency.restore', $item->id) }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-teal" title="Restore Currency">
+                                                <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restore
+                                            </button>
+                                        </form>
+                                    @else
+                                        @if($item->country)
+                                            <a href="{{ route('currency.sync', $item->country->id) }}"
+                                               class="sg-btn sg-btn-xs sg-btn-indigo" title="Sync from ExchangeRate API">
+                                                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                                Sync
+                                            </a>
+                                        @endif
+                                        <a href="{{ route('currency.show', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-secondary">
+                                            <i data-lucide="eye" class="w-3 h-3"></i> View
                                         </a>
+                                        <a href="{{ route('currency.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning">Edit</a>
+                                        <form action="{{ route('currency.destroy', $item->id) }}" method="POST" class="sg-delete-form" onsubmit="return confirm('Delete this record?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger">Del</button>
+                                        </form>
                                     @endif
-                                    <a href="{{ route('currency.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning" id="edit-curr-{{ $item->id }}">Edit</a>
-                                    <form action="{{ route('currency.destroy', $item->id) }}" method="POST" style="display:inline" onsubmit="return confirm('Delete this record?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger" id="del-curr-{{ $item->id }}">Del</button>
-                                    </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="sg-empty">
-                                <div class="sg-empty-icon">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <td colspan="10">
+                                <div class="sg-empty-state">
+                                    <div class="sg-empty-icon">
+                                        <i data-lucide="banknote" class="w-8 h-8"></i>
+                                    </div>
+                                    <h3>No Currency Data</h3>
+                                    <p>Go to Countries and click Sync Currency for each country, or add records manually.</p>
+                                    <a href="{{ route('countries.index') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+                                        <i data-lucide="globe" class="w-4 h-4"></i>
+                                        Go to Countries
+                                    </a>
                                 </div>
-                                <p>No currency data. Go to Countries and click Sync Currency for each country.</p>
-                                <a href="{{ route('countries.index') }}" class="sg-btn sg-btn-primary">Go to Countries</a>
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        @if(method_exists($currency, 'hasPages') && $currency->hasPages())
+            <div class="sg-pagination">
+                <div class="sg-pagination-info">
+                    Showing <strong>{{ $currency->firstItem() }}</strong>–<strong>{{ $currency->lastItem() }}</strong> of <strong>{{ $currency->total() }}</strong> entries
+                </div>
+                <div class="sg-pagination-nav">
+                    {{ $currency->withQueryString()->links() }}
+                </div>
+            </div>
+        @endif
     </div>
 
+    <style>
+        .sg-form-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--sg-border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            color: var(--sg-text-primary);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            font-family: inherit;
+        }
+        .sg-form-input:focus {
+            border-color: rgba(255,107,0,0.5);
+            box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
+        }
+    </style>
+
+    <script>
+        function startImport(service) {
+            Swal.fire({
+                title: 'Importing ' + service + ' data...',
+                html: '<div class="progress-container"><div class="progress-bar" id="import-progress-bar" style="width:0%"></div></div><p id="import-status">Initializing...</p>',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                background: '#1B2433',
+                color: '#F8FAFC',
+                didOpen: () => {
+                    fetch('/' + service + '/import/api', { method: 'GET' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                pollProgress(service);
+                            } else {
+                                Swal.close();
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Import Failed',
+                                    text: data.message || 'Failed to start import',
+                                    confirmButtonColor: '#FF6B00',
+                                    background: '#1B2433',
+                                    color: '#F8FAFC'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to start import: ' + err.message,
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        });
+                }
+            });
+        }
+
+        function pollProgress(service) {
+            let timer = setInterval(() => {
+                fetch('/sync/progress/' + service)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'completed' || data.status === 'success') {
+                            clearInterval(timer);
+                            document.getElementById('import-progress-bar').style.width = '100%';
+                            document.getElementById('import-status').innerText = 'Finished successfully!';
+                            setTimeout(() => {
+                                Swal.close();
+                                location.reload();
+                            }, 1000);
+                        } else if (data.status === 'failed' || data.status === 'error') {
+                            clearInterval(timer);
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Import Failed',
+                                text: data.message || 'Sync failed.',
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        } else {
+                            let pct = data.percentage || 0;
+                            document.getElementById('import-progress-bar').style.width = pct + '%';
+                            document.getElementById('import-status').innerText = 'Processing: ' + pct + '%';
+                        }
+                    })
+                    .catch(() => {
+                        // ignore and retry
+                    });
+            }, 1500);
+        }
+    </script>
 </x-app-layout>

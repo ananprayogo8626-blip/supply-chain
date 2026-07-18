@@ -41,7 +41,7 @@ class SyncWeatherJob implements ShouldQueue
                 $progress->save();
             }
             
-            $exitCode = Artisan::call('weather:sync', [
+            $exitCode = Artisan::call('sync:weather', [
                 '--batch' => $this->batchNumber,
                 '--total-batches' => $this->totalBatches,
             ]);

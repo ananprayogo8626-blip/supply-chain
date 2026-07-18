@@ -14,11 +14,21 @@ class OpenMeteoService
     protected $baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
     /**
-     * Ambil data cuaca berdasarkan latitude & longitude
+     * Ambil data cuaca berdasarkan latitude & longitude dengan cache
      */
     public function getWeather(float $latitude, float $longitude): ?array
     {
+        $cacheKey = "weather_{$latitude}_{$longitude}";
+        $cacheDuration = now()->addHours(1); // Cache for 1 hour
+
         try {
+            // Try to get from cache first
+            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+            if ($cached !== null) {
+                \Illuminate\Support\Facades\Log::debug("OpenMeteoService: Cache hit for {$latitude}, {$longitude}");
+                return $cached;
+            }
+
             $response = retry(2, function() use ($latitude, $longitude) {
                 return Http::timeout(15)->get($this->baseUrl, [
                     'latitude'           => $latitude,
@@ -30,24 +40,27 @@ class OpenMeteoService
             }, 500);
 
             if (!$response->successful()) {
+                \Illuminate\Support\Facades\Log::warning("OpenMeteoService: API request failed, using fallback for {$latitude}, {$longitude}");
                 return $this->getFallbackWeather($latitude, $longitude);
             }
 
             $data = $response->json();
 
             if (!isset($data['current'])) {
+                \Illuminate\Support\Facades\Log::warning("OpenMeteoService: Invalid API response, using fallback for {$latitude}, {$longitude}");
                 return $this->getFallbackWeather($latitude, $longitude);
             }
 
             $current = $data['current'];
 
-            return [
+            $weatherData = [
                 'temperature'       => $current['temperature_2m'] ?? 0,
                 'humidity'          => $current['relative_humidity_2m'] ?? 0,
                 'wind_speed'        => $current['wind_speed_10m'] ?? 0,
                 'rainfall'          => $current['precipitation'] ?? 0,
                 'cloud'             => $current['cloud_cover'] ?? 0,
                 'pressure'          => $current['surface_pressure'] ?? 0,
+                'weather_code'      => $current['weather_code'] ?? 0,
                 'weather_condition' => $this->weatherCodeToDescription($current['weather_code'] ?? 0),
                 'storm_risk'        => $this->calculateStormRisk(
                     $current['wind_speed_10m'] ?? 0,
@@ -55,7 +68,14 @@ class OpenMeteoService
                     $current['weather_code'] ?? 0
                 ),
             ];
+
+            // Store in cache
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $weatherData, $cacheDuration);
+            \Illuminate\Support\Facades\Log::debug("OpenMeteoService: Cached weather data for {$latitude}, {$longitude}");
+
+            return $weatherData;
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("OpenMeteoService: Exception, using fallback for {$latitude}, {$longitude}: " . $e->getMessage());
             return $this->getFallbackWeather($latitude, $longitude);
         }
     }

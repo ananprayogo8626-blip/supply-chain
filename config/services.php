@@ -60,6 +60,7 @@ return [
     ],
 
     'exchangerate' => [
+        'key' => env('EXCHANGERATE_API_KEY'),
         'url' => env('EXCHANGERATE_API_URL', 'https://open.er-api.com/v6/latest'),
     ],
 

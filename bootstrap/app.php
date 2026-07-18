@@ -11,7 +11,19 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Registrasi RoleMiddleware untuk RBAC
+        $middleware->alias([
+            'role' => \App\Http\Middleware\RoleMiddleware::class,
+        ]);
+    })
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule) {
+        $schedule->command('sync:countries')->weekly();
+        $schedule->command('sync:weather')->hourly();
+        $schedule->command('sync:economy')->daily();
+        $schedule->command('sync:currency')->everyThirtyMinutes();
+        $schedule->command('sync:news')->everyTwoHours();
+        $schedule->command('sync:ports')->weekly();
+        $schedule->command('sync:risk')->everyThirtyMinutes();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

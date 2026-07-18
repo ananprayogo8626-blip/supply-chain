@@ -1,27 +1,31 @@
 <x-app-layout>
 
-    <!-- Page Header -->
-    <div class="sg-page-header">
-        <div class="sg-page-header-row">
-            <div>
-                <h1 class="sg-page-title" style="display:flex;align-items:center;gap:8px">
-                    <i data-lucide="shield-alert" style="color:var(--sg-danger);width:22px;height:22px"></i>
-                    Risk Scores
-                </h1>
-                <p class="sg-page-desc">Supply chain risk assessment matrix for all monitored countries.</p>
-            </div>
-            <div class="sg-data-actions">
-                <button onclick="exportTableToCSV('risk-scores-export.csv', 'risk-scores-table')" class="sg-btn sg-btn-outline-orange">
-                    <i data-lucide="download" style="width:14px;height:14px"></i> Export CSV
-                </button>
-                <a href="{{ route('risk-scores.calculate-all') }}"
-                   onclick="return confirm('Recalculate risk scores for all countries? This may take a moment.')"
-                   class="sg-btn sg-btn-gradient" id="btn-recalc-risk">
-                    <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Recalculate Risk Scores
-                </a>
-            </div>
-        </div>
-    </div>
+    <!-- Standardized Header -->
+    <x-crud-header 
+        title="Risk Scores"
+        description="Supply chain risk assessment matrix for all monitored countries."
+        icon="shield-alert"
+        iconColor="text-red-500"
+    >
+        <a href="#import-section" onclick="document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            Import CSV
+        </a>
+        <a href="{{ route('risk-scores.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="download" class="w-4 h-4"></i> Export CSV
+        </a>
+        <a href="{{ route('risk-scores.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
+            <i data-lucide="file-text" class="w-4 h-4"></i> Export PDF
+        </a>
+        <a href="{{ route('risk-scores.calculate-all') }}"
+           onclick="return confirm('Recalculate risk scores for all countries? This may take a moment.')"
+           class="sg-btn sg-btn-sm sg-btn-gradient" id="btn-recalc-risk">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Recalculate Risk Scores
+        </a>
+        <a href="{{ route('risk-scores.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Score Card
+        </a>
+    </x-crud-header>
 
     @if(session('success'))
         <div class="sg-flash sg-flash-success mb-4">
@@ -35,6 +39,19 @@
             {{ session('error') }}
         </div>
     @endif
+
+    <!-- CSV Import Card -->
+    <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
+        <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import Risk Scores from CSV</h3>
+        <form action="{{ route('risk-scores.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            @csrf
+            <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
+            <button type="submit" class="sg-btn sg-btn-secondary">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Import CSV
+            </button>
+        </form>
+    </div>
 
     <!-- Stats Row -->
     <div class="sg-grid-stats mb-5">
@@ -84,13 +101,28 @@
         </div>
     </div>
 
+    <!-- Standardized Toolbar -->
+    <x-crud-toolbar 
+        searchPlaceholder="Search risk scores..."
+        searchValue="{{ request('search') }}"
+        :showRefresh="true"
+        :showExport="false"
+        :showImport="false"
+        :showAdd="false"
+    >
+        <select name="status" onchange="this.form.submit()">
+            <option value="">Active</option>
+            <option value="trash" {{ request('status') === 'trash' ? 'selected' : '' }}>Trash (Deleted)</option>
+        </select>
+    </x-crud-toolbar>
+
     <!-- Main Table -->
     <div class="sg-data-card">
         <div class="sg-data-head">
             <div class="sg-data-head-left">
                 <i data-lucide="list" style="width:16px;height:16px;color:var(--sg-danger)"></i>
                 <h2 class="sg-data-title">Risk Score Data
-                    <span class="sg-count-badge">{{ method_exists($scores,'total') ? $scores->total() : $scores->count() }} records</span>
+                    <span class="sg-count-badge">{{ $scores->total() }} records</span>
                 </h2>
             </div>
         </div>
@@ -100,32 +132,15 @@
                 <thead>
                     <tr>
                         <th style="width:44px" class="sg-td-center">#</th>
-                        <th>
-                            <a href="{{ route('risk-scores.index', array_merge(request()->query(), ['sort' => request('sort') === 'country' ? 'country_desc' : 'country'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px">
-                                Country
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
+                        <th>Country</th>
                         <th class="sg-td-center">🌦 Weather</th>
                         <th class="sg-td-center">📈 Economy</th>
                         <th class="sg-td-center">💱 Currency</th>
                         <th class="sg-td-center">📰 News</th>
                         <th class="sg-td-center">⚓ Port</th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('risk-scores.index', array_merge(request()->query(), ['sort' => request('sort') === 'total_score' ? 'total_score_desc' : 'total_score'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Total
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
-                        <th class="sg-td-center">
-                            <a href="{{ route('risk-scores.index', array_merge(request()->query(), ['sort' => request('sort') === 'risk_level' ? 'risk_level_desc' : 'risk_level'])) }}"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;justify-content:center">
-                                Risk Level
-                                <svg style="width:12px;height:12px;opacity:0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
-                            </a>
-                        </th>
+                        <th class="sg-td-center">Total</th>
+                        <th class="sg-td-center">Risk Level</th>
+                        <th class="sg-td-center">Status</th>
                         <th class="sg-td-center" style="width:130px">Actions</th>
                     </tr>
                 </thead>
@@ -148,7 +163,7 @@
                             };
                         @endphp
                         <tr>
-                            <td class="sg-td-num">{{ $loop->iteration }}</td>
+                            <td class="sg-td-num">{{ $scores->firstItem() + $loop->index }}</td>
                             <td>
                                 <div class="sg-flag-cell">
                                     @if($score->country && $score->country->flag)
@@ -166,7 +181,7 @@
                                 <span style="font-size:13px;font-weight:600;color:var(--sg-text-primary)">{{ number_format($score->weather_score ?? 0, 1) }}</span>
                             </td>
                             <td class="sg-td-center">
-                                <span style="font-size:13px;font-weight:600;color:var(--sg-text-primary)">{{ number_format($score->economy_score ?? 0, 1) }}</span>
+                                <span style="font-size:13px;font-weight:600;color:var(--sg-text-primary)">{{ number_format($score->economic_score ?? 0, 1) }}</span>
                             </td>
                             <td class="sg-td-center">
                                 <span style="font-size:13px;font-weight:600;color:var(--sg-text-primary)">{{ number_format($score->currency_score ?? 0, 1) }}</span>
@@ -178,7 +193,6 @@
                                 <span style="font-size:13px;font-weight:600;color:var(--sg-text-primary)">{{ number_format($score->port_score ?? 0, 1) }}</span>
                             </td>
                             <td class="sg-td-center">
-                                <!-- Risk bar + score -->
                                 <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:70px">
                                     <span style="font-size:14px;font-weight:800;color:{{ $barColor }}">{{ number_format($total, 1) }}</span>
                                     <div style="width:60px;height:5px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden">
@@ -189,39 +203,58 @@
                             <td class="sg-td-center">
                                 <span class="sg-badge {{ $badgeClass }}">{{ $level }}</span>
                             </td>
+                            <td class="sg-td-center">
+                                @if($score->trashed())
+                                    <span class="sg-badge high">Deleted</span>
+                                @else
+                                    <span class="sg-badge low">Active</span>
+                                @endif
+                            </td>
                             <td>
                                 <div class="sg-action-group">
-                                    <a href="{{ route('risk-scores.show', $score->id) }}"
-                                       class="sg-btn sg-btn-xs sg-btn-indigo" id="view-risk-{{ $score->id }}" title="View Scorecard">
-                                        <i data-lucide="eye" style="width:11px;height:11px"></i> View
-                                    </a>
-                                    @if($score->country)
-                                    <a href="{{ route('risk-scores.calculate', $score->country->id) }}"
-                                       class="sg-btn sg-btn-xs sg-btn-teal" id="calc-risk-{{ $score->id }}" title="Recalculate">
-                                        <i data-lucide="refresh-cw" style="width:11px;height:11px"></i>
-                                    </a>
+                                    @if($score->trashed())
+                                        <form action="{{ route('risk-scores.restore', $score->id) }}" method="POST" style="display:inline;">
+                                            @csrf
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-teal" title="Restore Risk Score">
+                                                <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restore
+                                            </button>
+                                        </form>
+                                    @else
+                                        <a href="{{ route('risk-scores.show', $score->id) }}"
+                                           class="sg-btn sg-btn-xs sg-btn-indigo" id="view-risk-{{ $score->id }}" title="View Scorecard">
+                                            <i data-lucide="eye" style="width:11px;height:11px"></i> View
+                                        </a>
+                                        @if($score->country)
+                                        <a href="{{ route('risk-scores.calculate', $score->country->id) }}"
+                                           class="sg-btn sg-btn-xs sg-btn-teal" id="calc-risk-{{ $score->id }}" title="Recalculate">
+                                            <i data-lucide="refresh-cw" style="width:11px;height:11px"></i>
+                                        </a>
+                                        @endif
+                                        <a href="{{ route('risk-scores.edit', $score->id) }}" class="sg-btn sg-btn-xs sg-btn-warning" id="edit-risk-{{ $score->id }}" title="Edit">
+                                            <i data-lucide="edit" style="width:11px;height:11px"></i>
+                                        </a>
+                                        <form action="{{ route('risk-scores.destroy', $score->id) }}" method="POST" style="display:inline"
+                                              onsubmit="return confirm('Hapus data risk score ini?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger" id="del-risk-{{ $score->id }}" title="Delete">
+                                                <i data-lucide="trash-2" style="width:11px;height:11px"></i>
+                                            </button>
+                                        </form>
                                     @endif
-                                    <a href="{{ route('risk-scores.edit', $score->id) }}" class="sg-btn sg-btn-xs sg-btn-warning" id="edit-risk-{{ $score->id }}" title="Edit">
-                                        <i data-lucide="edit" style="width:11px;height:11px"></i>
-                                    </a>
-                                    <form action="{{ route('risk-scores.destroy', $score->id) }}" method="POST" style="display:inline"
-                                          onsubmit="return confirm('Hapus data risk score ini?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger" id="del-risk-{{ $score->id }}" title="Delete">
-                                            <i data-lucide="trash-2" style="width:11px;height:11px"></i>
-                                        </button>
-                                    </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="sg-empty">
-                                <div class="sg-empty-icon">
-                                    <i data-lucide="shield-off" style="width:40px;height:40px;opacity:0.3"></i>
+                            <td colspan="11" style="text-align:center; padding:40px;">
+                                <div class="sg-empty-state">
+                                    <div class="sg-empty-icon">
+                                        <i data-lucide="shield-off" class="w-8 h-8"></i>
+                                    </div>
+                                    <h3>No Risk Score Data</h3>
+                                    <p>No risk score data found.</p>
+                                    <a href="{{ route('risk-scores.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">Add Record</a>
                                 </div>
-                                <p>No risk score data found.</p>
-                                <a href="{{ route('risk-scores.create') }}" class="sg-btn sg-btn-primary" style="margin-top:8px">Add Record</a>
                             </td>
                         </tr>
                     @endforelse
@@ -229,12 +262,35 @@
             </table>
         </div>
 
+        <!-- Pagination -->
         @if(method_exists($scores, 'hasPages') && $scores->hasPages())
-            <div class="sg-pagination-wrap">
-                <p>Showing {{ $scores->firstItem() }} to {{ $scores->lastItem() }} of {{ $scores->total() }} results</p>
-                <div>{{ $scores->links() }}</div>
+            <div class="sg-pagination">
+                <div class="sg-pagination-info">
+                    Showing <strong>{{ $scores->firstItem() }}</strong>–<strong>{{ $scores->lastItem() }}</strong> of <strong>{{ $scores->total() }}</strong> records
+                </div>
+                <div class="sg-pagination-nav">
+                    {{ $scores->withQueryString()->links() }}
+                </div>
             </div>
         @endif
     </div>
 
+    <style>
+        .sg-form-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--sg-border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            color: var(--sg-text-primary);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            font-family: inherit;
+        }
+        .sg-form-input:focus {
+            border-color: rgba(255,107,0,0.5);
+            box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
+        }
+    </style>
 </x-app-layout>

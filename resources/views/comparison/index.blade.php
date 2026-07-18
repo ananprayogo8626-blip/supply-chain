@@ -1,20 +1,26 @@
 <x-app-layout>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-    <div class="mb-6">
-        <h1 class="sg-page-title">Global Supply Chain Comparison</h1>
-        <p class="sg-page-desc">Compare macroeconomic indicators, weather risks, currency exchange, and news sentiment for 2 to 5 countries.</p>
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between pb-5 mb-6 border-b border-white/5">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <i data-lucide="git-compare" class="w-7 h-7 text-violet-400"></i>
+                Global Supply Chain Comparison
+            </h1>
+            <p class="text-sm text-slate-400 mt-2">Compare macroeconomic indicators, weather risks, currency exchange, and news sentiment for 2 to 5 countries.</p>
+        </div>
     </div>
 
     @if ($errors->any())
-        <div class="sg-alert mb-4">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span style="margin-left:8px">Please select between 2 and 5 countries.</span>
+        <div class="sg-flash sg-flash-error">
+            <i data-lucide="alert-circle" class="w-5 h-5"></i>
+            Please select between 2 and 5 countries.
         </div>
     @endif
 
     {{-- Country Selection Panel --}}
-    <div class="sg-panel mb-6" x-data="{
+    <div class="sg-data-card" x-data="{
         selected: @json($selectedCountries->pluck('id')->toArray()),
         showLimitError: false,
         toggleCountry(id) {
@@ -31,35 +37,38 @@
             }
         }
     }">
-        <div class="sg-panel-head" style="padding:0 0 16px 0;margin-bottom:16px;border-bottom:1px solid var(--sg-border)">
-            <h3 class="sg-panel-title">Select Countries to Compare <span style="font-weight:400;color:var(--sg-text-secondary)">(Choose 2–5 countries)</span></h3>
-            <div x-show="showLimitError" x-transition style="margin-top:12px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:12px;color:#ef4444;display:flex;align-items:center;gap:6px">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="sg-data-head">
+            <div class="sg-data-head-left">
+                <i data-lucide="globe" class="w-5 h-5 text-violet-400"></i>
+                <h2 class="sg-data-title">Select Countries to Compare
+                    <span class="sg-count-badge">Choose 2–5 countries</span>
+                </h2>
+            </div>
+            <div x-show="showLimitError" x-transition class="text-xs text-red-400 flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
                 Maximum of 5 countries allowed for comparison
             </div>
         </div>
 
         <form method="GET" action="{{ route('comparison') }}" id="compare-form">
-            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:10px;max-height:160px;overflow-y:auto;padding:8.5px;border:1px solid var(--sg-border);border-radius:8px;background:rgba(0,0,0,0.15);margin-bottom:16px">
+            <div class="sg-country-selector-grid">
                 @foreach($countries as $c)
-                    <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid var(--sg-border);cursor:pointer;font-size:12.5px;font-weight:500;user-select:none;transition:all 0.12s;color:var(--sg-text-secondary)"
-                        :style="selected.includes({{ $c->id }}) ? 'border-color:var(--accent-orange);background:rgba(255,107,0,0.08);color:var(--text-white)' : ''">
+                    <label class="sg-country-checkbox" :class="selected.includes({{ $c->id }}) ? 'sg-country-checkbox-selected' : ''">
                         <input type="checkbox" name="countries[]" value="{{ $c->id }}"
-                            style="accent-color:var(--accent-orange)"
                             :checked="selected.includes({{ $c->id }})"
                             @change="toggleCountry({{ $c->id }})">
                         @if($c->flag)
-                            <img src="{{ $c->flag }}" style="width:20px;height:14px;object-fit:cover;border-radius:2px;border:1px solid var(--sg-border)">
+                            <img src="{{ $c->flag }}" loading="lazy">
                         @endif
-                        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $c->country_name }}</span>
+                        <span>{{ $c->country_name }}</span>
                     </label>
                 @endforeach
             </div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center">
-                <span style="font-size:12px;color:var(--sg-text-secondary)" x-text="`Selected: ${selected.length} / 5 countries`"></span>
-                <button type="submit" class="sg-btn sg-btn-primary" :disabled="selected.length < 2">
-                    <i data-lucide="git-compare" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px"></i>
+            <div class="flex justify-between items-center">
+                <span class="text-xs text-slate-400" x-text="`Selected: ${selected.length} / 5 countries`"></span>
+                <button type="submit" class="sg-btn sg-btn-gradient" :disabled="selected.length < 2">
+                    <i data-lucide="git-compare" class="w-4 h-4"></i>
                     Compare Selected
                 </button>
             </div>
@@ -68,9 +77,12 @@
 
     @if($selectedCountries->count() >= 2)
         {{-- Side by Side Comparative Table --}}
-        <div class="sg-panel mb-6" style="padding:0;overflow:hidden">
-            <div class="sg-panel-head" style="padding:16px 20px;border-bottom:1px solid var(--sg-border)">
-                <h3 class="sg-panel-title">Indicator Comparison Matrix</h3>
+        <div class="sg-data-card mb-6">
+            <div class="sg-data-head">
+                <div class="sg-data-head-left">
+                    <i data-lucide="table" class="w-5 h-5 text-violet-400"></i>
+                    <h2 class="sg-data-title">Indicator Comparison Matrix</h2>
+                </div>
             </div>
             <div style="overflow-x:auto">
                 <table class="sg-table" style="width:100%;border-collapse:collapse;min-width:700px">
@@ -221,9 +233,14 @@
         </div>
 
         {{-- Radar Chart Comparison --}}
-        <div class="sg-panel">
-            <h3 class="sg-panel-title" style="margin-bottom:16px">Geopolitical & Operational Risk Profile</h3>
-            <div style="display:flex;justify-content:center">
+        <div class="sg-data-card">
+            <div class="sg-data-head">
+                <div class="sg-data-head-left">
+                    <i data-lucide="radar" class="w-5 h-5 text-violet-400"></i>
+                    <h2 class="sg-data-title">Geopolitical & Operational Risk Profile</h2>
+                </div>
+            </div>
+            <div class="flex justify-center p-6">
                 <div class="relative w-full max-w-2xl" style="height:360px">
                     <canvas id="radarChart"></canvas>
                 </div>
@@ -288,14 +305,21 @@
             });
         </script>
 
+        // Refresh function for post-sync updates
+        <script>
+        function refreshCompare() {
+            window.location.reload();
+        }
+        </script>
+
     @else
         {{-- Empty State --}}
-        <div class="sg-panel text-center" style="padding:80px 16px">
+        <div class="sg-data-card text-center" style="padding:80px 16px">
             <div class="sg-empty-icon" style="margin-bottom:16px">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:36px;height:36px;color:#94a3b8;margin:0 auto"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <i data-lucide="git-compare" class="w-10 h-10"></i>
             </div>
-            <h3 class="sg-panel-title" style="font-size:16px;margin-bottom:6px">Select Countries to Compare</h3>
-            <p class="sg-page-desc" style="max-width:480px;margin:0 auto 16px">Choose between 2 and 5 countries from the panel above and click "Compare Selected" to render side-by-side risk matrices and dynamic radar charts.</p>
+            <h3 class="text-xl font-bold text-white mb-2">Select Countries to Compare</h3>
+            <p class="text-slate-400 max-w-lg mx-auto">Choose between 2 and 5 countries from the panel above and click "Compare Selected" to render side-by-side risk matrices and dynamic radar charts.</p>
         </div>
     @endif
 </x-app-layout>

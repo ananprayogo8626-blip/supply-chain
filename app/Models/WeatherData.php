@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WeatherData extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'weather_data';
 
@@ -20,6 +21,7 @@ class WeatherData extends Model
         'cloud',
         'pressure',
         'weather_condition',
+        'weather_code',
         'storm_risk',
     ];
 

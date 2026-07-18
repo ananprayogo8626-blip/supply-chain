@@ -9,162 +9,299 @@ use App\Models\CurrencyData;
 use App\Models\News;
 use App\Models\Port;
 use App\Models\RiskScore;
+use Illuminate\Support\Facades\Log;
 
 class RiskScoreEngine
 {
     /**
-     * Weights for risk calculation
-     * Must sum to 1.0 (100%)
-     */
-    protected $weights = [
-        'weather' => 0.25,
-        'economy' => 0.25,
-        'news'    => 0.25,
-        'currency'=> 0.15,
-        'port'    => 0.10,
-    ];
-
-    /**
-     * Calculate and save/update risk score for a country
+     * Calculate and save/update risk score for a country using 5 weighted risk factors.
+     * sum of weights: Weather (25%), Economy (20%), Currency (15%), News (25%), Ports (15%).
      *
      * @param Country $country
      * @return RiskScore|null
      */
     public function calculate(Country $country): ?RiskScore
     {
-        // 1. Weather Score (25%)
-        $weatherData = WeatherData::where('country_id', $country->id)->first();
-        $weatherScore = 20; // Healthy standard weather
-        if ($weatherData) {
-            $ws = 0;
-            // Temp risk
-            $temp = abs((float) $weatherData->temperature);
-            if ($temp > 35 || $temp < 0) $ws += 25;
-            elseif ($temp > 28 || $temp < 8) $ws += 10;
-            
-            // Wind speed
-            $wind = (float) $weatherData->wind_speed;
-            if ($wind > 12) $ws += 25;
-            elseif ($wind > 6) $ws += 10;
-            
-            // Storm risk
-            $ws += (int) $weatherData->storm_risk;
-            
-            // Rainfall/Cloud
-            if ((float) $weatherData->rainfall > 5) $ws += 15;
-            if ((float) $weatherData->cloud > 70) $ws += 10;
-            
-            $weatherScore = min(100, max(20, $ws));
-        }
+        try {
+            Log::info("RiskScoreEngine: [Country Processed] {$country->country_name}");
 
-        // 2. Economy Score (25%)
-        $economicData = EconomicData::where('country_id', $country->id)->first();
-        $economyScore = 30; // Default
-        if ($economicData) {
-            $es = 15;
-            // Inflation
-            $inflation = (float) $economicData->inflation;
-            if ($inflation > 15 || $inflation < -2) $es += 40;
-            elseif ($inflation > 8 || $inflation < 0) $es += 25;
-            elseif ($inflation > 4) $es += 15;
-            
-            // GDP Growth
-            $growth = (float) $economicData->gdp_growth;
-            if ($growth < -1) $es += 35;
-            elseif ($growth < 1) $es += 20;
-            elseif ($growth < 2.5) $es += 10;
-            
-            // Trade balance
-            $imports = (float) $economicData->imports;
-            $exports = (float) $economicData->exports;
-            if ($imports > $exports * 1.3) $es += 15;
-            
-            $economyScore = min(100, max(15, $es));
-        }
+            $weatherVal  = $this->calculateWeatherScore($country);
+            $economyVal  = $this->calculateEconomyScore($country);
+            $currencyVal = $this->calculateCurrencyScore($country);
+            $newsVal     = $this->calculateNewsScore($country);
+            $portVal     = $this->calculatePortScore($country);
 
-        // 3. News Score (25%)
-        $newsList = News::where('country_id', $country->id)->latest()->take(10)->get();
-        $newsScore = 30; // Default
-        if ($newsList->count() > 0) {
-            $totalImpact = 0;
-            foreach ($newsList as $news) {
-                $impact = (int) $news->impact_score;
-                if ($news->sentiment === 'Negative') {
-                    $impact = min(100, $impact + 35); // Stronger penalty
-                } elseif ($news->sentiment === 'Positive') {
-                    $impact = max(10, $impact - 15);
-                }
-                $totalImpact += $impact;
+            // Compute total weighted score (Weighted Risk Model)
+            $totalScore = (int) round(
+                ($weatherVal  * 0.25) +
+                ($economyVal  * 0.20) +
+                ($currencyVal * 0.15) +
+                ($newsVal     * 0.25) +
+                ($portVal     * 0.15)
+            );
+
+            // Risk Level classification:
+            // 0 - 25 LOW, 26 - 50 MEDIUM, 51 - 75 HIGH, 76 - 100 CRITICAL
+            if ($totalScore >= 76) {
+                $riskLevel = 'Critical';
+                $recommendation = 'Critical supply chain threat. Immediately establish backup logistics and hedge currency/tariff exposures.';
+            } elseif ($totalScore >= 51) {
+                $riskLevel = 'High';
+                $recommendation = 'High risk warnings. Establish buffer inventory and diversify supplier nodes.';
+            } elseif ($totalScore >= 26) {
+                $riskLevel = 'Medium';
+                $recommendation = 'Medium risk. Monitor weather patterns and track currency fluctuations closely.';
+            } else {
+                $riskLevel = 'Low';
+                $recommendation = 'Stable supply chain environment. Standard operations are sufficient.';
             }
-            $newsScore = (int) ($totalImpact / $newsList->count());
-        }
 
-        // 4. Currency Score (15%)
-        $currencyData = CurrencyData::where('country_id', $country->id)->first();
-        $currencyScore = 20; // Default
-        if ($currencyData) {
-            $change = abs((float) $currencyData->change_percentage);
-            if ($change > 8) $currencyScore = 90;
-            elseif ($change > 4) $currencyScore = 70;
-            elseif ($change > 1.5) $currencyScore = 40;
-            else $currencyScore = 15;
-        }
-
-        // 5. Port Score (10%)
-        $ports = Port::where('country_id', $country->id)->get();
-        $portScore = 10; // Default
-        if ($ports->count() > 0) {
-            $pts = 10;
-            $hasClosed = $ports->where('status', 'Closed')->count() > 0;
-            $hasCongested = $ports->where('status', 'Congested')->count() > 0;
-            if ($hasClosed) $pts += 50;
-            if ($hasCongested) $pts += 30;
-            
-            $inactivePorts = $ports->where('status', 'Inactive')->count();
-            if ($inactivePorts > 0) {
-                $pts += ($inactivePorts / $ports->count()) * 20;
-            }
-            $portScore = min(100, $pts);
-        }
-
-        // Calculate weighted score
-        $totalScore = (int) round(
-            ($weatherScore * $this->weights['weather']) +
-            ($economyScore * $this->weights['economy']) +
-            ($newsScore * $this->weights['news']) +
-            ($currencyScore * $this->weights['currency']) +
-            ($portScore * $this->weights['port'])
-        );
-
-        // Classify Risk Level
-        if ($totalScore >= 76) {
-            $riskLevel = 'Critical';
-            $recommendation = 'Critical risk level. Highest priority threat. Diversify suppliers, establish backup logistics, and hedge currency exposure immediately.';
-        } elseif ($totalScore >= 51) {
-            $riskLevel = 'High';
-            $recommendation = 'High risk level. Major warning. Limit single-source dependencies and review buffer inventory.';
-        } elseif ($totalScore >= 26) {
-            $riskLevel = 'Medium';
-            $recommendation = 'Moderate risk level. Monitor weather warnings, track currency fluctuations, and maintain regular contact with local agents.';
-        } else {
-            $riskLevel = 'Low';
-            $recommendation = 'Stable supply chain environment. Standard operations can proceed. Normal monitoring schedule is sufficient.';
-        }
-
-        // Update or create risk score
-        return RiskScore::updateOrCreate(
-            ['country_id' => $country->id],
-            [
-                'weather_score'  => $weatherScore,
-                'economic_score' => $economyScore,
-                'currency_score' => $currencyScore,
-                'news_score'     => $newsScore,
-                'port_score'     => $portScore,
+            $dataToUpdate = [
+                'weather_score'  => $weatherVal,
+                'economic_score' => $economyVal,
+                'currency_score' => $currencyVal,
+                'news_score'     => $newsVal,
+                'port_score'     => $portVal,
                 'total_score'    => $totalScore,
                 'risk_level'     => $riskLevel,
                 'recommendation' => $recommendation,
                 'calculated_at'  => now(),
-            ]
+            ];
+
+            $existing = RiskScore::where('country_id', $country->id)->first();
+
+            if ($existing) {
+                $isDifferent = false;
+                foreach (['weather_score', 'economic_score', 'currency_score', 'port_score', 'news_score', 'total_score', 'risk_level'] as $key) {
+                    if ($existing->$key != $dataToUpdate[$key]) {
+                        $isDifferent = true;
+                        break;
+                    }
+                }
+
+                if ($isDifferent) {
+                    $this->saveRiskHistory($country, $totalScore, $riskLevel);
+                    $existing->update($dataToUpdate);
+                    Log::info("RiskScoreEngine: [Risk Updated] {$country->country_name} score: {$totalScore} ({$riskLevel})");
+                }
+                $riskScore = $existing;
+            } else {
+                $this->saveRiskHistory($country, $totalScore, $riskLevel);
+                $riskScore = RiskScore::create(array_merge(['country_id' => $country->id], $dataToUpdate));
+                Log::info("RiskScoreEngine: [Risk Updated] {$country->country_name} score: {$totalScore} ({$riskLevel})");
+            }
+
+            return $riskScore;
+
+        } catch (\Throwable $e) {
+            Log::error("RiskScoreEngine: [Risk Failed] for {$country->country_name}: " . $e->getMessage(), [
+                'exception' => $e
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Recalculate risk scores for all countries
+     */
+    public function calculateAll(): void
+    {
+        try {
+            Log::info("RiskScoreEngine: [Risk Calculation Started]");
+            
+            $totalCountries = Country::count();
+            $processedCount = 0;
+            
+            Country::chunk(20, function ($countries) use (&$processedCount) {
+                foreach ($countries as $country) {
+                    $this->calculate($country);
+                    $processedCount++;
+                }
+            });
+            
+            Log::info("RiskScoreEngine: [Calculation Finished]");
+            
+        } catch (\Throwable $e) {
+            Log::error("RiskScoreEngine: Batch calculation error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * 1. Calculate Weather Score (25% Weight)
+     */
+    protected function calculateWeatherScore(Country $country): int
+    {
+        $weather = WeatherData::where('country_id', $country->id)->first();
+        if (!$weather) {
+            return 30; // default cache fallback
+        }
+
+        // Storm Risk contribution (40%)
+        $stormScore = (int) ($weather->storm_risk ?? 0);
+
+        // Heavy Rain contribution (20%)
+        $rainfall = (float) ($weather->rainfall ?? 0);
+        $rainScore = $rainfall > 10 ? 100 : ($rainfall > 5 ? 70 : ($rainfall > 2 ? 40 : 10));
+
+        // Extreme Wind contribution (20%)
+        $wind = (float) ($weather->wind_speed ?? 0);
+        $windScore = $wind > 15 ? 100 : ($wind > 10 ? 70 : ($wind > 5 ? 40 : 10));
+
+        // Temperature contribution (20%)
+        $temp = (float) ($weather->temperature ?? 15);
+        $tempScore = ($temp > 38 || $temp < -5) ? 100 : (($temp > 30 || $temp < 5) ? 60 : 10);
+
+        return (int) round(
+            ($stormScore * 0.40) +
+            ($rainScore  * 0.20) +
+            ($windScore  * 0.20) +
+            ($tempScore  * 0.20)
         );
+    }
+
+    /**
+     * 2. Calculate Economy Score (20% Weight)
+     */
+    protected function calculateEconomyScore(Country $country): int
+    {
+        $economy = EconomicData::where('country_id', $country->id)->first();
+        if (!$economy) {
+            return 30; // default cache fallback
+        }
+
+        // GDP Size contribution (20%)
+        $gdp = (float) ($economy->gdp ?? 0);
+        $gdpScore = $gdp < 1e10 ? 80 : ($gdp < 5e10 ? 50 : ($gdp < 2e11 ? 30 : 10));
+
+        // Inflation deviation contribution (30%)
+        $inflation = (float) ($economy->inflation ?? 0);
+        $inflationScore = ($inflation > 15 || $inflation < -2) ? 100 : (($inflation > 8) ? 70 : (($inflation > 4) ? 40 : 10));
+
+        // Export volume contribution (25%)
+        $exports = (float) ($economy->exports ?? 0);
+        $exportScore = $exports < 5e9 ? 80 : ($exports < 2e10 ? 50 : 15);
+
+        // Import volume contribution (25%)
+        $imports = (float) ($economy->imports ?? 0);
+        $importScore = $imports < 5e9 ? 80 : ($imports < 2e10 ? 50 : 15);
+
+        return (int) round(
+            ($gdpScore       * 0.20) +
+            ($inflationScore * 0.30) +
+            ($exportScore    * 0.25) +
+            ($importScore    * 0.25)
+        );
+    }
+
+    /**
+     * 3. Calculate Currency Score (15% Weight)
+     */
+    protected function calculateCurrencyScore(Country $country): int
+    {
+        $currency = CurrencyData::where('country_id', $country->id)->first();
+        if (!$currency) {
+            return 30; // default cache fallback
+        }
+
+        // Exchange Rate level contribution (40%)
+        $rate = (float) ($currency->exchange_rate ?? 1);
+        $rateScore = $rate > 10000 ? 80 : ($rate > 1000 ? 60 : ($rate > 100 ? 40 : ($rate > 5 ? 20 : 10)));
+
+        // Volatility contribution (60%)
+        $volatility = abs((float) ($currency->change_percentage ?? 0));
+        $volatilityScore = $volatility > 8 ? 100 : ($volatility > 4 ? 70 : ($volatility > 2 ? 40 : 10));
+
+        return (int) round(
+            ($rateScore       * 0.40) +
+            ($volatilityScore * 0.60)
+        );
+    }
+
+    /**
+     * 4. Calculate News Score (25% Weight)
+     */
+    protected function calculateNewsScore(Country $country): int
+    {
+        $newsList = News::where('country_id', $country->id)
+            ->latest('published_at')
+            ->take(10)
+            ->get();
+
+        if ($newsList->isEmpty()) {
+            return 30; // default cache fallback
+        }
+
+        $negative = 0;
+        $neutral  = 0;
+        $positive = 0;
+        $total    = $newsList->count();
+
+        foreach ($newsList as $item) {
+            if ($item->sentiment === 'Negative') {
+                $negative++;
+            } elseif ($item->sentiment === 'Positive') {
+                $positive++;
+            } else {
+                $neutral++;
+            }
+        }
+
+        // Weighted Sentiment Analysis index
+        $score = (int) round(
+            (($negative / $total) * 100) +
+            (($neutral  / $total) * 40) -
+            (($positive / $total) * 30)
+        );
+
+        return min(100, max(0, $score));
+    }
+
+    /**
+     * 5. Calculate Port Score (15% Weight)
+     */
+    protected function calculatePortScore(Country $country): int
+    {
+        $ports = Port::where('country_id', $country->id)->get();
+        if ($ports->isEmpty()) {
+            return 25; // default fallback for landlocked targets
+        }
+
+        $totalPortScore = 0;
+
+        foreach ($ports as $port) {
+            // Status contribution (40%)
+            $statusScore = $port->status === 'Closed' ? 100 : ($port->status === 'Congested' ? 60 : 15);
+
+            // Congestion contribution (30%)
+            $congestionScore = $port->status === 'Congested' ? 100 : 10;
+
+            // Delay contribution (30%)
+            $delayScore = $port->status === 'Closed' ? 100 : ($port->status === 'Congested' ? 60 : 10);
+
+            $totalPortScore += (int) round(
+                ($statusScore     * 0.40) +
+                ($congestionScore * 0.30) +
+                ($delayScore      * 0.30)
+            );
+        }
+
+        return (int) round($totalPortScore / $ports->count());
+    }
+
+    /**
+     * Save risk score history for tracking trends
+     */
+    protected function saveRiskHistory(Country $country, int $totalScore, string $riskLevel): void
+    {
+        try {
+            \App\Models\RiskHistory::create([
+                'country_id' => $country->id,
+                'total_score' => $totalScore,
+                'risk_level' => $riskLevel,
+                'calculated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("RiskScoreEngine: Error saving risk history for {$country->country_name}: " . $e->getMessage());
+        }
     }
 }

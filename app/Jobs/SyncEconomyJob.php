@@ -41,7 +41,7 @@ class SyncEconomyJob implements ShouldQueue
                 $progress->save();
             }
             
-            $exitCode = Artisan::call('economy:sync', [
+            $exitCode = Artisan::call('sync:economy', [
                 '--batch' => $this->batchNumber,
                 '--total-batches' => $this->totalBatches,
             ]);

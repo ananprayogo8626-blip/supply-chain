@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Port extends Model
 {
+    use SoftDeletes;
     /**
      * Nama tabel
      */
@@ -25,6 +27,7 @@ class Port extends Model
         'longitude',
         'port_type',
         'status',
+        'capacity',
         'description',
     ];
 

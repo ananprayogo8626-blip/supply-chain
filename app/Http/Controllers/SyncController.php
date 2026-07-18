@@ -50,7 +50,7 @@ class SyncController extends Controller
                 'status' => 'success',
                 'message' => 'Sync process started successfully',
                 'batch_id' => $batchId,
-                'total_batches' => $totalBatches * 5, // 5 stages
+                'total_batches' => $totalBatches * 6, // 6 stages (countries, weather, economy, currency, ports, news)
             ]);
         } catch (\Throwable $e) {
             Log::error("syncAll: Error starting sync: " . $e->getMessage(), [
@@ -125,13 +125,13 @@ class SyncController extends Controller
     {
         try {
             $jobs = [
-                'countries' => ['countries:sync', 'Countries Data'],
-                'weather'   => ['weather:sync', 'Weather Data'],
-                'economy'   => ['economy:sync', 'Economy Data'],
-                'currency'  => ['currency:sync', 'Currency Data'],
-                'ports'     => ['ports:import', 'Ports Data'],
-                'news'      => ['news:sync', 'News Data'],
-                'risk'      => ['risk:calculate', 'Risk Scores'],
+                'countries' => ['sync:countries', 'Countries Data'],
+                'weather'   => ['sync:weather', 'Weather Data'],
+                'economy'   => ['sync:economy', 'Economy Data'],
+                'currency'  => ['sync:currency', 'Currency Data'],
+                'ports'     => ['sync:ports', 'Ports Data'],
+                'news'      => ['sync:news', 'News Data'],
+                'risk'      => ['sync:risk', 'Risk Scores'],
             ];
 
             if (!isset($jobs[$step])) {

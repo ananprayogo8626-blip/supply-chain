@@ -70,6 +70,9 @@ class CountryService
                     'flag'         => ($item['cca2'] ?? $item['country_code'] ?? null) ? 'https://flagcdn.com/w80/' . strtolower($item['cca2'] ?? $item['country_code']) . '.png' : null,
                     'latitude'     => $item['latlng'][0] ?? $item['latitude'] ?? null,
                     'longitude'    => $item['latlng'][1] ?? $item['longitude'] ?? null,
+                    'timezone'     => isset($item['timezones']) && is_array($item['timezones']) && count($item['timezones']) > 0
+                        ? $item['timezones'][0]
+                        : null,
                 ];
             }
 

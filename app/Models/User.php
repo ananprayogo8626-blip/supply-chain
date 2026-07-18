@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -23,6 +24,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'profile_photo',
+        'role',
+        'phone',
     ];
 
     /**
@@ -64,5 +68,61 @@ class User extends Authenticatable
     public function watchlists(): HasMany
     {
         return $this->hasMany(Watchlist::class);
+    }
+
+    /**
+     * Cek apakah user adalah Super Admin
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
+    }
+
+    /**
+     * Cek apakah user adalah Admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Cek apakah user adalah Analyst
+     */
+    public function isAnalyst(): bool
+    {
+        return $this->role === 'analyst';
+    }
+
+    /**
+     * Cek apakah user adalah Viewer
+     */
+    public function isViewer(): bool
+    {
+        return $this->role === 'viewer';
+    }
+
+    /**
+     * Cek apakah user adalah User
+     */
+    public function isUser(): bool
+    {
+        return in_array($this->role, ['user', 'viewer']);
+    }
+
+    /**
+     * Cek apakah user memiliki akses admin (super_admin atau admin)
+     */
+    public function hasAdminAccess(): bool
+    {
+        return in_array($this->role, ['super_admin', 'admin']);
+    }
+
+    /**
+     * Cek apakah user memiliki akses edit (super_admin, admin, atau analyst)
+     */
+    public function hasEditAccess(): bool
+    {
+        return in_array($this->role, ['super_admin', 'admin', 'analyst']);
     }
 }

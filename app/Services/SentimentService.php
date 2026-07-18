@@ -51,10 +51,11 @@ class SentimentService
         $negDict = $this->negativeWords;
 
         try {
-            $dbWords = DB::table('sentiment_words')->get();
-            if ($dbWords->count() > 0) {
-                $posDict = $dbWords->filter(fn($w) => ($w->type ?? $w->sentiment ?? '') === 'positive')->pluck('word')->toArray();
-                $negDict = $dbWords->filter(fn($w) => ($w->type ?? $w->sentiment ?? '') === 'negative')->pluck('word')->toArray();
+            $posWords = DB::table('positive_words')->pluck('word')->toArray();
+            $negWords = DB::table('negative_words')->pluck('word')->toArray();
+            if (count($posWords) > 0 || count($negWords) > 0) {
+                $posDict = $posWords;
+                $negDict = $negWords;
             }
         } catch (\Exception $e) {
             // Silence DB exception and use fallback

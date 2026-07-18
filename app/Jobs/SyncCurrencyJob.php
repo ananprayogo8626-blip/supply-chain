@@ -41,7 +41,7 @@ class SyncCurrencyJob implements ShouldQueue
                 $progress->save();
             }
             
-            $exitCode = Artisan::call('currency:sync', [
+            $exitCode = Artisan::call('sync:currency', [
                 '--batch' => $this->batchNumber,
                 '--total-batches' => $this->totalBatches,
             ]);
@@ -58,14 +58,14 @@ class SyncCurrencyJob implements ShouldQueue
                 
                 // Check if this is the last batch of currency stage - dispatch next stage
                 if ($this->batchNumber === $this->totalBatches) {
-                    $progress->stage = 'news';
+                    $progress->stage = 'ports';
                     $progress->save();
                     
-                    // Dispatch News jobs
+                    // Dispatch Ports jobs
                     for ($i = 1; $i <= $this->totalBatches; $i++) {
-                        SyncNewsJob::dispatch($this->batchId, $i, $this->totalBatches);
+                        SyncPortsJob::dispatch($this->batchId, $i, $this->totalBatches);
                     }
-                    Log::info("Dispatched News jobs for batch {$this->batchId}");
+                    Log::info("Dispatched Ports jobs for batch {$this->batchId}");
                 }
             }
 

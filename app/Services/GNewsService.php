@@ -4,149 +4,162 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Country;
 
 /**
  * GNews API Service
- * Daftar gratis di https://gnews.io (100 request/hari)
- * Atau gunakan NewsAPI.org
+ * Fetches real supply-chain news from https://gnews.io
  */
 class GNewsService
 {
-    protected $apiKey;
-    protected $baseUrl = 'https://gnews.io/api/v4/search';
+    protected ?string $apiKey = null;
+    protected string $baseUrl = 'https://gnews.io/api/v4/search';
 
     public function __construct()
     {
-        $this->apiKey = config('services.gnews.key', env('GNEWS_API_KEY', ''));
+        $this->apiKey = config('services.gnews.key') ?? env('GNEWS_API_KEY') ?? '';
     }
 
     /**
-     * Ambil berita berdasarkan keyword
+     * Fetch news by keyword from GNews API.
      *
-     * @param string $query  Keyword pencarian
-     * @param string $lang   Bahasa (default: en)
-     * @param int    $max    Jumlah maksimal artikel
+     * @param string $query  Search keyword
+     * @param string $lang   Language (default: en)
+     * @param int    $max    Maximum articles per request (GNews free: max 10)
      * @return array
      */
     public function getNews(string $query, string $lang = 'en', int $max = 10): array
     {
-        // Jika tidak ada API key, gunakan fallback data
         if (empty($this->apiKey)) {
-            return $this->getFallbackNews($query);
+            Log::warning('GNewsService: No API key configured. Returning empty array.');
+            return [];
         }
 
         try {
-            $response = retry(2, function() use ($query, $lang, $max) {
-                return Http::timeout(20)->get($this->baseUrl, [
-                    'q'       => $query,
-                    'lang'    => $lang,
-                    'max'     => $max,
-                    'apikey'  => $this->apiKey,
-                    'sortby'  => 'publishedAt',
+            $response = Http::timeout(20)
+                ->retry(3, 1000)
+                ->get($this->baseUrl, [
+                    'q'      => $query,
+                    'lang'   => $lang,
+                    'max'    => $max,
+                    'apikey' => $this->apiKey,
+                    'sortby' => 'publishedAt',
                 ]);
-            }, 1000);
 
             if (!$response->successful()) {
-                Log::warning('GNews API error: ' . $response->status());
-                return $this->getFallbackNews($query);
+                Log::warning('GNewsService: API returned HTTP ' . $response->status() . ' for query "' . $query . '"');
+                return [];
             }
 
             $data = $response->json();
+            $articles = $data['articles'] ?? [];
 
-            return $data['articles'] ?? [];
-        } catch (\Exception $e) {
-            Log::warning('GNews API exception: ' . $e->getMessage());
-            return $this->getFallbackNews($query);
+            Log::info('GNewsService: Fetched ' . count($articles) . ' articles for query "' . $query . '"');
+            return $articles;
+
+        } catch (\Throwable $e) {
+            Log::warning('GNewsService: Exception for query "' . $query . '": ' . $e->getMessage());
+            return [];
         }
     }
 
     /**
-     * Ambil berita supply chain (multi-topic)
+     * Fetch supply-chain news across multiple topics.
+     * Returns only real API data — no dummy/fallback data generated.
+     *
+     * @return array
      */
     public function getSupplyChainNews(): array
     {
         $topics = [
-            'supply chain disruption',
-            'shipping logistics',
-            'global trade',
-            'port congestion',
-            'economic crisis',
-            'geopolitical risk',
+            'logistics',
+            'shipping',
+            'supply chain',
+            'economy',
+            'trade',
+            'export',
+            'import',
+            'inflation',
+            'port',
+            'harbor',
+            'container',
+            'cargo',
         ];
 
         $allArticles = [];
+        $seenUrls    = [];
 
         foreach ($topics as $topic) {
-            $articles = $this->getNews($topic, 'en', 3);
-            $allArticles = array_merge($allArticles, $articles);
+            Log::info('GNewsService: Fetching articles for topic "' . $topic . '"');
+            $articles = $this->getNews($topic, 'en', 10);
+
+            foreach ($articles as $article) {
+                $url = $article['url'] ?? '';
+                if ($url && isset($seenUrls[$url])) {
+                    continue; // skip URL duplicates within this batch
+                }
+                if ($url) {
+                    $seenUrls[$url] = true;
+                }
+                $allArticles[] = $article;
+            }
+
+            // Respect GNews rate-limit on free plan (100 req/day)
+            usleep(300000); // 0.3 second between requests
         }
 
+        Log::info('GNewsService: Total unique articles fetched: ' . count($allArticles));
         return $allArticles;
     }
 
     /**
-     * Fallback berita statis jika API tidak tersedia
+     * Returns category-specific fallback image URLs (Unsplash).
+     * Used when an article has no image from the API.
      */
-    private function getFallbackNews(string $query): array
+    public static function getDefaultImageForCategory(string $category): string
     {
-        $countries = Country::all();
-        $articles = [];
-        
-        $templates = [
-            [
-                'title' => "Supply Chain Disruption Reported in {country}",
-                'description' => "Recent logistics delays in {country} are causing bottlenecks. The capital city of {capital} has reported minor cargo delays.",
-                'source' => "Logistics World"
-            ],
-            [
-                'title' => "Port Congestion Affects Shipping Terminals in {country}",
-                'description' => "Congestion at major shipping lines near {country} has increased lead times. Importers are advised to seek alternative routes.",
-                'source' => "Maritime Intelligence"
-            ],
-            [
-                'title' => "Economic Fluctuations in {country} Impact Manufacturing Costs",
-                'description' => "A shifts in market indices within {country} is directly affecting the procurement of raw materials and operational overheads.",
-                'source' => "Global Trade Report"
-            ],
-            [
-                'title' => "Weather Advisory Issued for Shipping Routes Near {country}",
-                'description' => "Heavy storm conditions forecast near {country} may disrupt incoming and outgoing maritime cargo shipments.",
-                'source' => "Meteo Shipping News"
-            ],
-            [
-                'title' => "Inflation Pressure Causes Pricing Re-evaluations in {country}",
-                'description' => "Rising operating costs in {country} are forcing freight forwarders to adjust transit pricing models.",
-                'source' => "Finance Logistics Daily"
-            ]
+        $map = [
+            'PORT AUTHORITY NEWS'      => 'https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=800&q=80',
+            'SUPPLY CHAIN DIGEST'      => 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&q=80',
+            'FINANCE LOGISTICS DAILY'  => 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80',
+            'METEO SHIPPING NEWS'      => 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&q=80',
+            'TECHNOLOGY LOGISTICS'     => 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&q=80',
+            'GEOPOLITICAL RISK'        => 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80',
+            'TRADE POLICY'             => 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&q=80',
+            'LOGISTICS INNOVATION'     => 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800&q=80',
+            'GREEN SHIPPING'           => 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=800&q=80',
         ];
 
-        // Generate news for at least 160 countries to guarantee 150+ unique articles!
-        $selectedCountries = $countries->take(160);
-        foreach ($selectedCountries as $index => $country) {
-            $template = $templates[$index % count($templates)];
-            $title = str_replace(['{country}', '{capital}'], [$country->country_name, $country->capital ?? 'the capital'], $template['title']);
-            $description = str_replace(['{country}', '{capital}'], [$country->country_name, $country->capital ?? 'the capital'], $template['description']);
-            
-            // Randomize sentiment markers to trigger varied sentiment analysis
-            if ($index % 3 === 0) {
-                $description .= " Importers are highly optimistic about quick resolution and positive outlook.";
-            } elseif ($index % 3 === 1) {
-                $description .= " Experts warn of critical escalation risks and severe transport delays.";
-            } else {
-                $description .= " Stable conditions are expected to resume shortly with neutral changes.";
-            }
+        return $map[$category]
+            ?? 'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=800&q=80';
+    }
 
-            $articles[] = [
-                'title' => $title,
-                'description' => $description,
-                'url' => 'https://example.com/news/' . strtolower($country->country_code) . '-' . $index,
-                'image' => null,
-                'publishedAt' => now()->subHours($index)->toISOString(),
-                'source' => ['name' => $template['source']],
-            ];
+    /**
+     * Infer a display category label from article title + description text.
+     */
+    public static function inferCategory(string $text): string
+    {
+        $text = strtolower($text);
+
+        $rules = [
+            'PORT AUTHORITY NEWS'     => ['port', 'harbor', 'harbour', 'terminal', 'berth', 'wharf', 'quay', 'dock'],
+            'SUPPLY CHAIN DIGEST'     => ['shipping', 'vessel', 'container', 'cargo', 'freight', 'logistics', 'supply chain', 'fleet'],
+            'FINANCE LOGISTICS DAILY' => ['economy', 'economic', 'inflation', 'trade', 'gdp', 'financial', 'finance', 'tariff', 'export', 'import', 'sanction', 'currency'],
+            'METEO SHIPPING NEWS'     => ['weather', 'storm', 'typhoon', 'hurricane', 'cyclone', 'flood', 'earthquake', 'rain', 'wind', 'drought'],
+            'TECHNOLOGY LOGISTICS'    => ['technology', 'ai ', 'automation', 'digital', 'robot', 'software', 'blockchain', 'iot'],
+            'GEOPOLITICAL RISK'       => ['war', 'conflict', 'geopolit', 'military', 'sanction', 'protest', 'coup', 'crisis', 'tension'],
+            'TRADE POLICY'            => ['policy', 'regulation', 'agreement', 'treaty', 'wto', 'customs', 'duty', 'quota'],
+            'LOGISTICS INNOVATION'    => ['innovation', 'efficiency', 'warehouse', 'distribution', 'drone', 'electric vehicle'],
+            'GREEN SHIPPING'          => ['sustainable', 'green', 'carbon', 'emission', 'eco', 'renewable', 'environment'],
+        ];
+
+        foreach ($rules as $label => $keywords) {
+            foreach ($keywords as $kw) {
+                if (strpos($text, $kw) !== false) {
+                    return $label;
+                }
+            }
         }
 
-        return $articles;
+        return 'SUPPLY CHAIN DIGEST';
     }
 }

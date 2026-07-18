@@ -1,122 +1,554 @@
 <x-app-layout>
 
-    <div class="sg-page-header">
-        <div class="sg-page-header-row">
-            <div>
-                <h1 class="sg-page-title">News & Events</h1>
-                <p class="sg-page-desc">Supply chain news with AI sentiment analysis, synced from GNews API.</p>
-            </div>
-            <div class="sg-data-actions">
-                <a href="{{ route('news.sync') }}"
-                   onclick="return confirm('Sync latest supply chain news from GNews API?')"
-                   class="sg-btn sg-btn-teal" id="btn-sync-news">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    Sync News API
-                </a>
-                <a href="{{ route('news.create') }}" class="sg-btn sg-btn-outline" id="btn-add-news">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Add Article
-                </a>
-            </div>
-        </div>
-    </div>
+    @push('head')
+        {{-- Bootstrap Grid only (no Bootstrap JS / reset — keeps SupplyGuard design intact) --}}
+        <link rel="stylesheet"
+              href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-grid.min.css"
+              crossorigin="anonymous">
+        <style>
+            /* ── News-page local overrides ───────────────────────────── */
+
+            /* Card wrapper — all cards same height */
+            .news-card-col {
+                display: flex;
+            }
+
+            /* The card itself */
+            .news-card {
+                background: var(--sg-glass);
+                border: 1px solid var(--sg-border);
+                border-radius: 14px;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                transition: transform 0.25s ease, box-shadow 0.25s ease;
+                text-decoration: none;
+                color: inherit;
+            }
+            .news-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+                border-color: rgba(249, 115, 22, 0.35);
+            }
+
+            /* Image always exactly 170 px high */
+            .news-card-img-wrapper {
+                display: block;
+                width: 100%;
+                height: 170px;
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+            .news-card-img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: center;
+                border-radius: 0;
+                border-bottom: 1px solid var(--sg-border);
+                transition: transform 0.3s ease;
+            }
+            .news-card:hover .news-card-img {
+                transform: scale(1.03);
+            }
+
+            /* Body grows to fill remaining space */
+            .news-card-body {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                padding: 14px 16px 0 16px;
+            }
+
+            /* Title: max 2 lines */
+            .news-card-title {
+                font-size: 13.5px;
+                font-weight: 700;
+                line-height: 1.45;
+                color: var(--sg-text-primary);
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                margin: 6px 0 8px 0;
+                flex-shrink: 0;
+            }
+            .news-card-title a { color: inherit; text-decoration: none; }
+            .news-card-title a:hover { color: var(--accent-orange); }
+
+            /* Description: max 3 lines */
+            .news-card-desc {
+                font-size: 12px;
+                color: var(--sg-text-secondary);
+                line-height: 1.6;
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                flex: 1;
+                margin-bottom: 0;
+            }
+
+            /* Footer — always pinned to bottom */
+            .news-card-footer {
+                padding: 10px 16px 14px 16px;
+                border-top: 1px solid rgba(255,255,255,0.05);
+                margin-top: 12px;
+                flex-shrink: 0;
+            }
+
+            /* Meta row: country flag + date */
+            .news-meta-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-size: 11px;
+                color: var(--sg-text-muted);
+                margin-bottom: 8px;
+            }
+            .news-flag {
+                width: 20px; height: 14px;
+                object-fit: cover;
+                border-radius: 2px;
+                border: 1px solid #e2e8f0;
+                margin-right: 5px;
+            }
+
+            /* Action buttons row */
+            .news-btn-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            /* Source badge */
+            .news-source-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 3px 8px;
+                border-radius: 6px;
+                font-size: 10px;
+                font-weight: 700;
+                background: rgba(249, 115, 22, 0.1);
+                color: var(--accent-orange);
+                border: 1px solid rgba(249, 115, 22, 0.2);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 140px;
+            }
+
+            /* Sentiment badges */
+            .senti-badge {
+                display: inline-flex; align-items: center; gap: 3px;
+                padding: 3px 8px; border-radius: 6px;
+                font-size: 10px; font-weight: 700;
+                text-transform: uppercase; letter-spacing: 0.5px;
+                flex-shrink: 0;
+            }
+            .senti-positive { background: rgba(16,185,129,.1); color:#10b981; border:1px solid rgba(16,185,129,.2); }
+            .senti-negative { background: rgba(239,68,68,.1);  color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+            .senti-neutral  { background: rgba(148,163,184,.1);color:#94a3b8; border:1px solid rgba(148,163,184,.2); }
+
+            /* Bootstrap row/col gutter in dark design */
+            .news-grid-row { --bs-gutter-x: 1.25rem; --bs-gutter-y: 1.25rem; }
+
+            /* Impact score colour */
+            .impact-high   { color: #ef4444; font-weight: 700; }
+            .impact-medium { color: #f97316; font-weight: 700; }
+            .impact-low    { color: #10b981; font-weight: 700; }
+
+            /* Progress animation */
+            .progress-container { width:100%;height:20px;background:#334155;border-radius:10px;overflow:hidden;margin:20px 0; }
+            .progress-bar { height:100%;background:linear-gradient(90deg,#FF6B00,#FF8C42);transition:width .3s ease; }
+            .sg-form-input {
+                width: 100%;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid var(--sg-border);
+                border-radius: 10px;
+                padding: 10px 14px;
+                font-size: 14px;
+                color: var(--sg-text-primary);
+                outline: none;
+                transition: border-color .2s, box-shadow .2s;
+                font-family: inherit;
+            }
+            .sg-form-input:focus {
+                border-color: rgba(255,107,0,0.5);
+                box-shadow: 0 0 0 3px rgba(255,107,0,0.08);
+            }
+        </style>
+    @endpush
+
+    {{-- Header --}}
+    <x-crud-header
+        title="News & Events"
+        description="Supply chain news with AI sentiment analysis, synced from GNews API."
+        icon="newspaper"
+        iconColor="text-purple-400"
+    >
+        <a href="#import-section" onclick="document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            Import CSV
+        </a>
+        <a href="{{ route('news.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Export CSV
+        </a>
+        <a href="{{ route('news.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            Export PDF
+        </a>
+        <button onclick="startImport('news')" class="sg-btn sg-btn-sm sg-btn-outline-orange">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            Sync News API
+        </button>
+        <a href="{{ route('news.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add Article
+        </a>
+    </x-crud-header>
 
     @if(session('success'))
-        <div class="sg-flash sg-flash-success mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <div class="sg-flash sg-flash-success">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
             {{ session('success') }}
         </div>
     @endif
     @if(session('error'))
-        <div class="sg-flash sg-flash-error mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="sg-flash sg-flash-error">
+            <i data-lucide="alert-circle" class="w-5 h-5"></i>
             {{ session('error') }}
         </div>
     @endif
 
-    <div class="sg-panel">
-        <div class="sg-panel-head" style="padding:0 0 20px 0;margin-bottom:20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between">
-            <div>
-                <h2 class="sg-panel-title">Latest Articles</h2>
-                <p class="sg-panel-sub">Analyzing the geopolitical, natural, and economic factors impacting global logistics.</p>
-            </div>
-            <div style="font-size:12px;color:#64748b">Source: GNews API + Sentiment Analysis</div>
-        </div>
-
-        <div class="sg-grid-3">
-            @forelse($news as $item)
-                <div class="sg-news-card" style="display:flex;flex-direction:column;justify-content:space-between;height:100%">
-                    <div>
-                        @if($item->image)
-                            <img src="{{ $item->image }}" class="sg-news-img" alt="News Image" loading="lazy" onerror="this.outerHTML='<div class=\'sg-news-img\' style=\'background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#94a3b8\'><svg fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\' style=\'width:36px;height:36px\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\'/></svg></div>'">
-                        @else
-                            <div class="sg-news-img" style="background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#94a3b8">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:36px;height:36px"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            </div>
-                        @endif
-
-                        <div class="sg-news-body">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                                <span class="sg-news-source">{{ $item->source ?? 'Unknown' }}</span>
-                                @if($item->sentiment === 'Positive')
-                                    <span class="sg-sentiment positive">Positive</span>
-                                @elseif($item->sentiment === 'Negative')
-                                    <span class="sg-sentiment negative">Negative</span>
-                                @else
-                                    <span class="sg-sentiment neutral">Neutral</span>
-                                @endif
-                            </div>
-
-                            <h3 class="sg-news-title" style="margin-top:0">
-                                @if($item->url)
-                                    <a href="{{ $item->url }}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-                                        {{ $item->title }}
-                                    </a>
-                                @else
-                                    {{ $item->title }}
-                                @endif
-                            </h3>
-                            <p class="sg-news-summary" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;min-height:56px">
-                                {{ $item->summary }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div style="padding:0 16px 16px 16px">
-                        <div class="sg-news-meta" style="border-top:1px solid #f1f5f9;padding-top:12px;margin-bottom:12px">
-                            <div style="display:flex;align-items:center;gap:6px">
-                                @if($item->country && $item->country->flag)
-                                    <img src="{{ $item->country->flag }}" style="width:20px;height:14px;object-fit:cover;border-radius:2px;border:1px solid #e2e8f0">
-                                @endif
-                                <span style="font-weight:600;font-size:12px;color:#475569">{{ $item->country->country_name ?? 'Global' }}</span>
-                            </div>
-                            <span>{{ $item->published_at ? \Carbon\Carbon::parse($item->published_at)->format('M d, Y') : '—' }}</span>
-                        </div>
-                        <div style="display:flex;align-items:center;justify-content:space-between">
-                            <div style="display:flex;align-items:center;gap:4px">
-                                <span style="font-size:11px;color:#94a3b8">Risk Impact:</span>
-                                <span style="font-weight:700;font-size:12px;color:{{ $item->impact_score >= 70 ? '#dc2626' : ($item->impact_score >= 40 ? '#ea580c' : '#16a34a') }}">{{ $item->impact_score ?? 0 }}%</span>
-                            </div>
-                            <div style="display:flex;gap:6px">
-                                <a href="{{ route('news.edit', $item->id) }}" class="sg-btn sg-btn-xs sg-btn-warning" id="edit-news-{{ $item->id }}">Edit</a>
-                                <form action="{{ route('news.destroy', $item->id) }}" method="POST" style="display:inline" onsubmit="return confirm('Delete this article?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger" id="del-news-{{ $item->id }}">Del</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            @empty
-                <div style="grid-column: span 3 / span 3; text-align: center; padding: 60px 16px; color: #94a3b8; font-size: 14px;">
-                    <div class="sg-empty-icon" style="margin-bottom:14px">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:26px;height:26px;color:#94a3b8;margin:0 auto"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
-                    </div>
-                    <p>No news articles yet. Click "Sync News API" to fetch from GNews.</p>
-                    <a href="{{ route('news.sync') }}" onclick="return confirm('Sync news from GNews API?')" class="sg-btn sg-btn-teal" id="btn-sync-empty">Sync Now</a>
-                </div>
-            @endforelse
-        </div>
+    <!-- CSV Import Card -->
+    <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
+        <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import News from CSV</h3>
+        <form action="{{ route('news.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            @csrf
+            <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
+            <button type="submit" class="sg-btn sg-btn-secondary">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Import CSV
+            </button>
+        </form>
     </div>
+
+    {{-- Toolbar --}}
+    <x-crud-toolbar
+        searchPlaceholder="Search news articles..."
+        searchValue="{{ request('search') }}"
+        :showRefresh="true"
+        :showExport="false"
+        :showImport="false"
+        :showAdd="false"
+    >
+        <select name="country" onchange="this.form.submit()">
+            <option value="">All Countries</option>
+            @foreach($countries as $c)
+                <option value="{{ $c->id }}" {{ request('country') == $c->id ? 'selected' : '' }}>
+                    {{ $c->country_name }}
+                </option>
+            @endforeach
+        </select>
+        <select name="category" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            <option value="General" {{ request('category') === 'General' ? 'selected' : '' }}>General</option>
+            <option value="Disaster" {{ request('category') === 'Disaster' ? 'selected' : '' }}>Disaster</option>
+            <option value="Political" {{ request('category') === 'Political' ? 'selected' : '' }}>Political</option>
+            <option value="Economic" {{ request('category') === 'Economic' ? 'selected' : '' }}>Economic</option>
+            <option value="Security" {{ request('category') === 'Security' ? 'selected' : '' }}>Security</option>
+            <option value="Logistics" {{ request('category') === 'Logistics' ? 'selected' : '' }}>Logistics</option>
+        </select>
+        <select name="sentiment" onchange="this.form.submit()">
+            <option value="">All Sentiments</option>
+            <option value="Positive" {{ request('sentiment') === 'Positive' ? 'selected' : '' }}>Positive</option>
+            <option value="Negative" {{ request('sentiment') === 'Negative' ? 'selected' : '' }}>Negative</option>
+            <option value="Neutral" {{ request('sentiment') === 'Neutral' ? 'selected' : '' }}>Neutral</option>
+        </select>
+        <select name="status" onchange="this.form.submit()">
+            <option value="">Active Only</option>
+            <option value="trash" {{ request('status') === 'trash' ? 'selected' : '' }}>Trash (Deleted)</option>
+        </select>
+    </x-crud-toolbar>
+
+    {{-- Main card --}}
+    <div class="sg-data-card">
+        <div class="sg-data-head">
+            <div class="sg-data-head-left">
+                <i data-lucide="newspaper" class="w-5 h-5 text-purple-400"></i>
+                <h2 class="sg-data-title">Latest Articles
+                    <span class="sg-count-badge">{{ $news->total() }} articles</span>
+                </h2>
+            </div>
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+                <i data-lucide="globe" class="w-4 h-4 text-blue-400"></i>
+                Source: GNews API & Sentiment Engine
+            </div>
+        </div>
+
+        {{-- Bootstrap 4-col grid --}}
+        <div class="container-fluid p-0">
+            <div class="row news-grid-row">
+                @forelse($news as $item)
+                    <div class="col-lg-3 col-md-6 col-12 news-card-col">
+                        <div class="news-card">
+
+                            {{-- Image Link --}}
+                            @if($item->url)
+                                <a href="{{ $item->url }}" target="_blank" rel="noopener" class="news-card-img-wrapper">
+                                    <img
+                                        src="{{ $item->image ?: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&q=80' }}"
+                                        class="news-card-img"
+                                        alt=""
+                                        loading="lazy"
+                                        onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&q=80'"
+                                    >
+                                </a>
+                            @else
+                                <a href="{{ route('news.show', $item->id) }}" class="news-card-img-wrapper">
+                                    <img
+                                        src="{{ $item->image ?: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&q=80' }}"
+                                        class="news-card-img"
+                                        alt=""
+                                        loading="lazy"
+                                        onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&q=80'"
+                                    >
+                                </a>
+                            @endif
+
+                            {{-- Body --}}
+                            <div class="news-card-body">
+                                {{-- Source + Sentiment row --}}
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                                    <span class="news-source-badge" title="{{ $item->source }}">
+                                        {{ Str::limit($item->source ?? 'Unknown', 22) }}
+                                    </span>
+                                    @if($item->sentiment === 'Positive')
+                                        <span class="senti-badge senti-positive">
+                                            <i data-lucide="trending-up" class="w-3 h-3"></i> Positive
+                                        </span>
+                                    @elseif($item->sentiment === 'Negative')
+                                        <span class="senti-badge senti-negative">
+                                            <i data-lucide="trending-down" class="w-3 h-3"></i> Negative
+                                        </span>
+                                    @else
+                                        <span class="senti-badge senti-neutral">
+                                            <i data-lucide="minus" class="w-3 h-3"></i> Neutral
+                                        </span>
+                                    @endif
+                                </div>
+
+                                {{-- Title Link --}}
+                                <h3 class="news-card-title">
+                                    @if($item->url)
+                                        <a href="{{ $item->url }}" target="_blank" rel="noopener">
+                                            {{ $item->title }}
+                                        </a>
+                                    @else
+                                        <a href="{{ route('news.show', $item->id) }}">
+                                            {{ $item->title }}
+                                        </a>
+                                    @endif
+                                </h3>
+
+                                {{-- Description --}}
+                                <p class="news-card-desc">{{ $item->summary }}</p>
+                            </div>
+
+                            {{-- Footer --}}
+                            <div class="news-card-footer">
+                                {{-- Country + Date --}}
+                                <div class="news-meta-row">
+                                    <div style="display:flex;align-items:center;gap:4px">
+                                        @if($item->country && $item->country->flag)
+                                            <img src="{{ $item->country->flag }}"
+                                                 class="news-flag"
+                                                 alt="{{ $item->country->country_name }}">
+                                        @endif
+                                        <span style="font-weight:600;font-size:12px;color:#475569">
+                                            {{ $item->country->country_name ?? 'Global' }}
+                                        </span>
+                                    </div>
+                                    <span>
+                                        {{ $item->published_at ? \Carbon\Carbon::parse($item->published_at)->format('M d, Y') : '—' }}
+                                    </span>
+                                </div>
+
+                                {{-- Impact + Action buttons --}}
+                                <div class="news-btn-row">
+                                    <div style="display:flex;align-items:center;gap:4px">
+                                        <span class="text-xs text-slate-400">Risk:</span>
+                                        <span class="{{ ($item->impact_score ?? 0) >= 70 ? 'impact-high' : (($item->impact_score ?? 0) >= 40 ? 'impact-medium' : 'impact-low') }} text-sm">
+                                            {{ $item->impact_score ?? 0 }}%
+                                        </span>
+                                    </div>
+                                    <div style="display:flex;gap:5px">
+                                        @if($item->trashed())
+                                            <form action="{{ route('news.restore', $item->id) }}" method="POST" style="display:inline;">
+                                                @csrf
+                                                <button type="submit" class="sg-btn sg-btn-xs sg-btn-teal" title="Restore News">
+                                                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restore
+                                                </button>
+                                            </form>
+                                        @else
+                                            @if($item->url)
+                                                <a href="{{ $item->url }}"
+                                                   target="_blank"
+                                                   rel="noopener"
+                                                   class="sg-btn sg-btn-xs sg-btn-secondary"
+                                                   title="Open Original News Article">
+                                                    <i data-lucide="external-link" class="w-3 h-3"></i> View
+                                                </a>
+                                            @else
+                                                <a href="{{ route('news.show', $item->id) }}"
+                                                   class="sg-btn sg-btn-xs sg-btn-secondary"
+                                                   title="View News Locally">
+                                                    <i data-lucide="eye" class="w-3 h-3"></i> View
+                                                </a>
+                                            @endif
+                                            <a href="{{ route('news.edit', $item->id) }}"
+                                               class="sg-btn sg-btn-xs sg-btn-warning">Edit</a>
+                                            <form action="{{ route('news.destroy', $item->id) }}"
+                                                  method="POST"
+                                                  onsubmit="return confirm('Delete this article?')">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="sg-btn sg-btn-xs sg-btn-danger">Del</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                @empty
+                    <div class="col-12">
+                        <div class="sg-empty-state">
+                            <div class="sg-empty-icon">
+                                <i data-lucide="newspaper" class="w-8 h-8"></i>
+                            </div>
+                            <h3>No News Articles</h3>
+                            <p>
+                                Click "Sync News API" to fetch articles from GNews, or add manually.
+                            </p>
+                            <button onclick="startImport('news')" class="sg-btn sg-btn-sm sg-btn-teal">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                Sync Now
+                            </button>
+                        </div>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- Pagination --}}
+        @if(method_exists($news, 'hasPages') && $news->hasPages())
+            <div class="sg-pagination" style="margin-top:1.5rem">
+                <div class="sg-pagination-info">
+                    Showing <strong>{{ $news->firstItem() }}</strong>–<strong>{{ $news->lastItem() }}</strong>
+                    of <strong>{{ $news->total() }}</strong> articles
+                </div>
+                <div class="sg-pagination-nav">
+                    {{ $news->withQueryString()->links() }}
+                </div>
+            </div>
+        @endif
+    </div>
+
+    <script>
+        function startImport(service) {
+            Swal.fire({
+                title: 'Syncing ' + service + ' data...',
+                html: '<div class="progress-container"><div class="progress-bar" id="import-progress-bar" style="width:0%"></div></div><p id="import-status">Initializing...</p>',
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                background: '#1B2433',
+                color: '#F8FAFC',
+                didOpen: () => {
+                    fetch('/' + service + '/sync/api', { method: 'GET' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                pollProgress(service);
+                            } else {
+                                Swal.close();
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Import Failed',
+                                    text: data.message || 'Failed to start import',
+                                    confirmButtonColor: '#FF6B00',
+                                    background: '#1B2433',
+                                    color: '#F8FAFC'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: err.message,
+                                confirmButtonColor: '#FF6B00',
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                        });
+                }
+            });
+        }
+
+        function pollProgress(service) {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const res  = await fetch('/api/import/progress/' + service);
+                    const json = await res.json();
+
+                    const pBar     = document.getElementById('import-progress-bar');
+                    const statusEl = document.getElementById('import-status');
+
+                    if (pBar)     pBar.style.width = json.percentage + '%';
+                    if (statusEl) statusEl.textContent = `Progress: ${json.percentage}% | Processed: ${json.processed}/${json.total}`;
+
+                    if (json.status === 'completed' || json.percentage >= 100) {
+                        clearInterval(pollInterval);
+                        setTimeout(() => {
+                            Swal.close();
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'success',
+                                title: 'Sync Completed Successfully',
+                                showConfirmButton: false,
+                                timer: 3000,
+                                background: '#1B2433',
+                                color: '#F8FAFC'
+                            });
+                            window.location.reload();
+                        }, 500);
+                    }
+
+                    if (json.status === 'failed') {
+                        clearInterval(pollInterval);
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Sync Failed',
+                            text: 'Latest data unavailable. Displaying cached articles.',
+                            confirmButtonColor: '#FF6B00',
+                            background: '#1B2433',
+                            color: '#F8FAFC'
+                        });
+                    }
+                } catch (err) {
+                    clearInterval(pollInterval);
+                }
+            }, 2000);
+        }
+    </script>
 
 </x-app-layout>
