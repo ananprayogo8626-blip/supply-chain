@@ -175,14 +175,18 @@ class ImportNewsJob implements ShouldQueue
                         ? now()->parse($article['publishedAt'])
                         : now();
 
-                    // ── Dedup & save by title ─────────────────────
+                    // ── Dedup & save by country_id + title (matching the database unique constraint) ──
                     $titleTruncated = substr($title, 0, 250);
 
-                    $news = News::updateOrCreate(
-                        ['url' => $url],
-                        [
-                            'title'           => $titleTruncated,
-                            'country_id'      => $matchedCountry->id,
+                    $news = News::withTrashed()->where([
+                        'country_id' => $matchedCountry->id,
+                        'title'      => $titleTruncated,
+                    ])->first();
+
+                    if ($news) {
+                        $news->restore();
+                        $news->update([
+                            'url'             => $url,
                             'source'          => substr($source, 0, 255),
                             'author'          => isset($article['author']) ? substr($article['author'], 0, 255) : null,
                             'category'        => $category,
@@ -193,14 +197,26 @@ class ImportNewsJob implements ShouldQueue
                             'sentiment'       => $sentiment,
                             'sentiment_score' => $sentimentScore,
                             'published_at'    => $publishedAt,
-                        ]
-                    );
-
-                    if ($news->wasRecentlyCreated) {
-                        $saved++;
-                    } else {
+                        ]);
                         $updated++;
-                        Log::info('[ImportNewsJob] Duplicate Skipped (updated): ' . substr($title, 0, 60));
+                        Log::info('[ImportNewsJob] Duplicate Skipped (updated/restored): ' . substr($title, 0, 60));
+                    } else {
+                        News::create([
+                            'title'           => $titleTruncated,
+                            'country_id'      => $matchedCountry->id,
+                            'url'             => $url,
+                            'source'          => substr($source, 0, 255),
+                            'author'          => isset($article['author']) ? substr($article['author'], 0, 255) : null,
+                            'category'        => $category,
+                            'image'           => $image,
+                            'impact_score'    => $impactScore,
+                            'summary'         => $description ?: null,
+                            'content'         => $article['content'] ?? null,
+                            'sentiment'       => $sentiment,
+                            'sentiment_score' => $sentimentScore,
+                            'published_at'    => $publishedAt,
+                        ]);
+                        $saved++;
                     }
 
                 } catch (\Throwable $e) {

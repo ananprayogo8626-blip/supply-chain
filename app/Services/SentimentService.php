@@ -51,11 +51,15 @@ class SentimentService
         $negDict = $this->negativeWords;
 
         try {
-            $posWords = DB::table('positive_words')->pluck('word')->toArray();
-            $negWords = DB::table('negative_words')->pluck('word')->toArray();
-            if (count($posWords) > 0 || count($negWords) > 0) {
-                $posDict = $posWords;
-                $negDict = $negWords;
+            if (Schema::hasTable('sentiment_words')) {
+                $posWords = DB::table('sentiment_words')->where('type', 'positive')->pluck('word')->toArray();
+                $negWords = DB::table('sentiment_words')->where('type', 'negative')->pluck('word')->toArray();
+                if (count($posWords) > 0) {
+                    $posDict = $posWords;
+                }
+                if (count($negWords) > 0) {
+                    $negDict = $negWords;
+                }
             }
         } catch (\Exception $e) {
             // Silence DB exception and use fallback

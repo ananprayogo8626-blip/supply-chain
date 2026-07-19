@@ -62,7 +62,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:5|confirmed',
             'role' => 'required|in:super_admin,admin,analyst,viewer',
             'phone' => 'nullable|string|max:20',
             'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -140,7 +140,7 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             $request->validate([
-                'password' => 'required|string|min:8|confirmed',
+                'password' => 'required|string|min:5|confirmed',
             ]);
             $data['password'] = Hash::make($request->password);
         }
@@ -197,7 +197,7 @@ class UserController extends Controller
     public function resetPassword(Request $request, User $user)
     {
         $request->validate([
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:5|confirmed',
         ]);
 
         $user->update([

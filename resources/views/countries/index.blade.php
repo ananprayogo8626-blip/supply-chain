@@ -8,18 +8,7 @@
             icon="globe"
             iconColor="text-orange-500"
         >
-            <a href="{{ route('countries.import-csv') }}" onclick="event.preventDefault(); document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
-                <i data-lucide="upload" class="w-4 h-4"></i>
-                Import CSV
-            </a>
-            <a href="{{ route('countries.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
-                <i data-lucide="download" class="w-4 h-4"></i>
-                Export CSV
-            </a>
-            <a href="{{ route('countries.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
-                Export PDF
-            </a>
+
             <a href="{{ route('countries.import') }}"
                onclick="return confirm('Import all countries from REST Countries API? This may take a moment.')"
                class="sg-btn sg-btn-sm sg-btn-outline-orange">
@@ -45,18 +34,6 @@
             </div>
         @endif
 
-        <!-- Import CSV Card -->
-        <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
-            <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import Countries from CSV</h3>
-            <form action="{{ route('countries.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                @csrf
-                <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
-                <button type="submit" class="sg-btn sg-btn-secondary">
-                    <i data-lucide="upload" class="w-4 h-4"></i>
-                    Import CSV
-                </button>
-            </form>
-        </div>
 
         <!-- Standardized Toolbar -->
         <x-crud-toolbar 

@@ -7,18 +7,7 @@
         icon="star"
         iconColor="text-yellow-400"
     >
-        <a href="#import-section" onclick="document.getElementById('import-section').scrollIntoView({behavior: 'smooth'})" class="sg-btn sg-btn-sm sg-btn-teal">
-            <i data-lucide="upload" class="w-4 h-4"></i>
-            Import CSV
-        </a>
-        <a href="{{ route('watchlists.export-csv') }}" class="sg-btn sg-btn-sm sg-btn-teal">
-            <i data-lucide="download" class="w-4 h-4"></i>
-            Export CSV
-        </a>
-        <a href="{{ route('watchlists.export-pdf') }}" class="sg-btn sg-btn-sm sg-btn-secondary" target="_blank">
-            <i data-lucide="file-text" class="w-4 h-4"></i>
-            Export PDF
-        </a>
+
         <a href="{{ route('watchlists.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
             <i data-lucide="plus" class="w-4 h-4"></i>
             Add Watchlist
@@ -38,18 +27,6 @@
         </div>
     @endif
 
-    <!-- CSV Import Card -->
-    <div id="import-section" class="sg-data-card" style="margin-bottom:20px; padding:16px;">
-        <h3 style="font-size:14px; font-weight:600; color:var(--sg-text-primary); margin:0 0 10px 0;">Import Watchlist from CSV</h3>
-        <form action="{{ route('watchlists.import-csv') }}" method="POST" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-            @csrf
-            <input type="file" name="file" accept=".csv" required class="sg-form-input" style="width:auto; flex:1; min-width:200px;">
-            <button type="submit" class="sg-btn sg-btn-secondary">
-                <i data-lucide="upload" class="w-4 h-4"></i>
-                Import CSV
-            </button>
-        </form>
-    </div>
 
     <!-- Glass Card with Table -->
     <div class="sg-data-card">

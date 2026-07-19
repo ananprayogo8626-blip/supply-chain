@@ -1,0 +1,120 @@
+/* Dashboard UI polish - dark premium theme */
+
+/* Global body */
+body {
+    background-color: #0F172A; /* dark navy */
+    color: #e0e7ff; /* light text */
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Card base */
+.sg-stat-card,
+.sg-panel {
+    background-color: #1E293B; /* card background */
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* soft shadow */
+    padding: 1.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sg-stat-card:hover,
+.sg-panel:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+}
+
+/* Typography */
+.sg-stat-label {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 600;
+    color: #cbd5e1; /* slate-300 */
+}
+
+.sg-stat-value {
+    font-size: 1.5rem; /* 24px */
+    font-weight: 700;
+    color: #f8fafc; /* white */
+}
+
+/* Accent colors for risk cards */
+.sg-stat-card[style*="rgba(239,68,68"] .sg-stat-label,
+.sg-stat-card[style*="rgba(239,68,68"] .sg-stat-value {
+    color: #EF4444; /* red */
+}
+
+.sg-stat-card[style*="rgba(245,158,11"] .sg-stat-label,
+.sg-stat-card[style*="rgba(245,158,11"] .sg-stat-value {
+    color: #F59E0B; /* amber */
+}
+
+.sg-stat-card[style*="rgba(16,185,129"] .sg-stat-label,
+.sg-stat-card[style*="rgba(16,185,129"] .sg-stat-value {
+    color: #10B981; /* green */
+}
+
+/* Panel headings */
+.sg-panel-head {
+    font-size: 0.9375rem; /* 15px */
+    font-weight: 600;
+    color: #f1f5f9; /* slate-200 */
+    margin-bottom: 0.75rem;
+}
+
+/* Tabs bar */
+[x-data] .flex.flex-wrap.border-b {
+    background-color: rgba(31,41,55,0.6); /* dark-ish */
+}
+
+/* Table styling */
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+}
+
+thead tr {
+    background-color: rgba(31,41,55,0.8);
+}
+
+thead th {
+    color: #94a3b8; /* slate-400 */
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+}
+
+tbody td {
+    background-color: #1E293B;
+    color: #e2e8f0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+}
+
+/* Hover animation for interactive elements */
+a.sg-sync-btn,
+button {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+a.sg-sync-btn:hover,
+button:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+/* Icon color overrides (lucide icons use currentColor) */
+[data-lucide] {
+    color: inherit;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .sg-stat-card, .sg-panel {
+        padding: 1rem;
+    }
+    .sg-stat-label {
+        font-size: 0.75rem;
+    }
+    .sg-stat-value {
+        font-size: 1.25rem;
+    }
+}
