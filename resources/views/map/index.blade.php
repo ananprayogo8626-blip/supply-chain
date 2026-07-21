@@ -99,46 +99,61 @@
             const countries = [
                 @foreach($countries as $c)
                 @php
-                    $gdpVal = $c->economicData->gdp ?? null;
-                    if ($gdpVal) {
-                        if ($gdpVal >= 1e12) $gdpStr = '$' . number_format($gdpVal / 1e12, 1) . 'T';
-                        elseif ($gdpVal >= 1e9) $gdpStr = '$' . number_format($gdpVal / 1e9, 1) . 'B';
-                        else $gdpStr = '$' . number_format($gdpVal / 1e6, 1) . 'M';
-                    } else {
-                        $gdpStr = 'N/A';
-                    }
-
-                    $weatherVal = $c->weatherData;
-                    $weatherStr = $weatherVal ? $weatherVal->temperature . '°C, ' . ($weatherVal->weather_condition ?? '') : 'N/A';
-
-                    $currencyVal = $c->currencyData;
-                    $currencyStr = $currencyVal ? $currencyVal->currency_code . ' (' . number_format($currencyVal->exchange_rate, 2) . ')' : 'N/A';
-
                     $latestNews = $c->news->sortByDesc('published_at')->first();
                     $newsStr = $latestNews ? \Illuminate\Support\Str::limit($latestNews->title, 55) : 'No recent news';
                 @endphp
                 {
+                    id: {{ $c->id }},
                     name: "{{ addslashes($c->country_name) }}",
                     lat: {{ $c->latitude ?? 0 }},
                     lng: {{ $c->longitude ?? 0 }},
                     score: {{ $c->riskScore->total_score ?? 0 }},
                     level: "{{ $c->riskScore->risk_level ?? 'Low' }}",
                     flag: "{{ $c->flag ?? '' }}",
-                    gdp: "{{ addslashes($gdpStr) }}",
-                    weather: "{{ addslashes($weatherStr) }}",
-                    currency: "{{ addslashes($currencyStr) }}",
                     news: "{{ addslashes($newsStr) }}"
                 },
                 @endforeach
             ];
 
+            // Cuaca/GDP/Currency diambil real-time hanya untuk negara yang diklik
+            // (tidak preload seluruh negara sekaligus).
+            function renderPopup(c, live) {
+                const gdp = live?.economy?.gdp
+                    ? '$' + (live.economy.gdp >= 1e12 ? (live.economy.gdp / 1e12).toFixed(1) + 'T' : live.economy.gdp >= 1e9 ? (live.economy.gdp / 1e9).toFixed(1) + 'B' : (live.economy.gdp / 1e6).toFixed(1) + 'M')
+                    : (live ? 'N/A' : 'Loading...');
+                const weather = live?.weather
+                    ? live.weather.temperature + '°C, ' + (live.weather.weather_condition ?? '')
+                    : (live ? 'N/A' : 'Loading...');
+                const currency = live?.currency
+                    ? live.currency.currency_code + ' (' + Number(live.currency.exchange_rate).toFixed(2) + ')'
+                    : (live ? 'N/A' : 'Loading...');
+
+                return `
+                    <div style="font-family: Inter, sans-serif; width: 230px; color:#f8fafc">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            ${c.flag ? `<img src="${c.flag}" style="width:24px;height:14px;object-fit:cover;border-radius:2px;border:1px solid rgba(255,255,255,0.1);" />` : ''}
+                            <strong style="font-size: 13px; color: #fff;">${c.name}</strong>
+                        </div>
+                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">GDP: <strong style="color: #fff;">${gdp}</strong></div>
+                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">Weather: <strong style="color: #fff;">${weather}</strong></div>
+                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">Currency: <strong style="color: #fff;">${currency}</strong></div>
+                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 8px;">Latest Event: <strong style="color: #cbd5e1;">${c.news}</strong></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.08);">
+                            <span style="font-size: 12px; font-weight: bold; color: #fff;">Score: ${c.score}/100</span>
+                            <span style="font-size: 9px; font-weight: bold; background: ${c.color}20; color: ${c.color}; border: 1px solid ${c.color}; border-radius: 4px; padding: 1.5px 6px; text-transform: uppercase;">${c.level}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
             countries.forEach(function(c) {
                 if (!c.lat || !c.lng) return;
-                
+
                 let color = '#10B981';
                 if (c.score >= 76) color = '#EF4444';
                 else if (c.score >= 51) color = '#F97316';
                 else if (c.score >= 26) color = '#EAB308';
+                c.color = color;
 
                 const circle = L.circle([c.lat, c.lng], {
                     color: color,
@@ -148,22 +163,14 @@
                     radius: 350000
                 }).addTo(map);
 
-                circle.bindPopup(`
-                    <div style="font-family: Inter, sans-serif; width: 230px; color:#f8fafc">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                            ${c.flag ? `<img src="${c.flag}" style="width:24px;height:14px;object-fit:cover;border-radius:2px;border:1px solid rgba(255,255,255,0.1);" />` : ''}
-                            <strong style="font-size: 13px; color: #fff;">${c.name}</strong>
-                        </div>
-                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">GDP: <strong style="color: #fff;">${c.gdp}</strong></div>
-                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">Weather: <strong style="color: #fff;">${c.weather}</strong></div>
-                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">Currency: <strong style="color: #fff;">${c.currency}</strong></div>
-                        <div style="font-size: 10px; color: #94a3b8; margin-bottom: 8px;">Latest Event: <strong style="color: #cbd5e1;">${c.news}</strong></div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.08);">
-                            <span style="font-size: 12px; font-weight: bold; color: #fff;">Score: ${c.score}/100</span>
-                            <span style="font-size: 9px; font-weight: bold; background: ${color}20; color: ${color}; border: 1px solid ${color}; border-radius: 4px; padding: 1.5px 6px; text-transform: uppercase;">${c.level}</span>
-                        </div>
-                    </div>
-                `);
+                circle.bindPopup(renderPopup(c, null));
+
+                circle.on('popupopen', function() {
+                    fetch(`/countries/${c.id}/dashboard-data`)
+                        .then(res => res.json())
+                        .then(data => circle.setPopupContent(renderPopup(c, data)))
+                        .catch(() => circle.setPopupContent(renderPopup(c, {})));
+                });
             });
 
             const ports = [

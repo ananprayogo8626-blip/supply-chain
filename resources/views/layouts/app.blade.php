@@ -79,21 +79,6 @@
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Countries</span>
                 </a>
 
-                <a href="{{ route('weather.index') }}" class="sg-nav-link {{ request()->routeIs('weather.*') ? 'active' : '' }}" id="nav-weather" :title="sidebarCollapsed ? 'Weather' : ''">
-                    <i data-lucide="cloud-sun"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Weather</span>
-                </a>
-
-                <a href="{{ route('economy.index') }}" class="sg-nav-link {{ request()->routeIs('economy.*') ? 'active' : '' }}" id="nav-economy" :title="sidebarCollapsed ? 'Economy' : ''">
-                    <i data-lucide="trending-up"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Economy</span>
-                </a>
-
-                <a href="{{ route('currency.index') }}" class="sg-nav-link {{ request()->routeIs('currency.*') ? 'active' : '' }}" id="nav-currency" :title="sidebarCollapsed ? 'Currency' : ''">
-                    <i data-lucide="dollar-sign"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Currency</span>
-                </a>
-
                 <a href="{{ route('ports.index') }}" class="sg-nav-link {{ request()->routeIs('ports.*') ? 'active' : '' }}" id="nav-ports" :title="sidebarCollapsed ? 'Ports' : ''">
                     <i data-lucide="anchor"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Ports</span>
@@ -125,11 +110,6 @@
                 <a href="{{ route('admin.api-management') }}" class="sg-nav-link {{ request()->routeIs('admin.api-management') ? 'active' : '' }}" id="nav-api-management" :title="sidebarCollapsed ? 'API Management' : ''">
                     <i data-lucide="cpu"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">API Management</span>
-                </a>
-
-                <a href="{{ route('admin.currency-api') }}" class="sg-nav-link {{ request()->routeIs('admin.currency-api') ? 'active' : '' }}" id="nav-currency-api" :title="sidebarCollapsed ? 'Currency API' : ''">
-                    <i data-lucide="coins"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Currency API</span>
                 </a>
 
                 <a href="{{ route('admin.risk-intelligence') }}" class="sg-nav-link {{ request()->routeIs('admin.risk-intelligence') ? 'active' : '' }}" id="nav-risk-intelligence" :title="sidebarCollapsed ? 'Risk Intelligence' : ''">
@@ -202,11 +182,6 @@
 
                 <div class="sg-header-right">
                     {{-- Sync Action Button --}}
-                    <a href="{{ route('sync.all') }}" class="sg-sync-btn">
-                        <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
-                        Sync APIs
-                    </a>
-
                     {{-- Notification Button --}}
                     <div class="sg-profile-container" x-data="{ open: false }" style="position:relative">
                         <button id="notif-btn" class="sg-notif-btn" @click="open = !open" title="Notifications">
@@ -307,254 +282,12 @@
         const progress = document.getElementById('global-loading-progress');
         const text = document.getElementById('global-loading-text');
 
-        // Step-by-step AJAX synchronization logic
-        async function runSyncStep(stepKey, progressPct) {
-            const el = document.getElementById('step-' + stepKey);
-            if (el) {
-                el.style.opacity = '1';
-                el.innerHTML = '<span class="swal-spinner"></span> <span>Syncing ' + stepKey + '...</span>';
-            }
-            try {
-                const res = await fetch('/sync/step/' + stepKey, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const json = await res.json();
-                if (!res.ok || json.status !== 'success') {
-                    throw new Error(json.message || 'API Error');
-                }
-                if (el) {
-                    el.innerHTML = '<i data-lucide="check-circle" style="color:#10B981;width:14px;height:14px;display:inline-block"></i> <span style="font-weight:600;color:#f8fafc">Successfully Synced ' + stepKey + '</span>';
-                }
-                const pBar = document.getElementById('swal-sync-progress-bar');
-                if (pBar) pBar.style.width = progressPct + '%';
-                lucide.createIcons();
-            } catch (err) {
-                if (el) {
-                    el.innerHTML = '<i data-lucide="alert-circle" style="color:#ef4444;width:14px;height:14px;display:inline-block"></i> <span style="font-weight:600;color:#ef4444">Failed: ' + err.message + '</span>';
-                }
-                lucide.createIcons();
-                throw err;
-            }
-        }
-
-        async function triggerStepSync() {
-            // Start queue-based sync
-            let batchId = null;
-            try {
-                const res = await fetch('/sync-all', {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const json = await res.json();
-                if (!res.ok || json.status !== 'success') {
-                    throw new Error(json.message || 'Failed to start sync');
-                }
-                batchId = json.batch_id;
-            } catch (err) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Sync Failed to Start',
-                    text: err.message || 'Could not initialize synchronization',
-                    confirmButtonColor: '#FF6B00',
-                    background: '#1B2433',
-                    color: '#F8FAFC'
-                });
-                return;
-            }
-
-            Swal.fire({
-                title: 'Synchronizing Risk Data Grid',
-                html: `
-                    <div style="text-align: left; font-family: Inter, sans-serif; font-size: 13px; color: #cbd5e1; margin-top: 10px;">
-                        <p style="margin-bottom: 12px; color: #94a3b8;">Processing live operational updates from global REST API gateways via queue...</p>
-                        <div id="swal-sync-progress-bar-wrap" style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-bottom: 16px;">
-                            <div id="swal-sync-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #FF6B00, #2563EB); transition: width 0.3s ease;"></div>
-                        </div>
-                        <div id="swal-sync-status" style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">Initializing...</div>
-                        <div id="swal-sync-steps" style="display: flex; flex-direction: column; gap: 8px;">
-                            <div id="step-countries" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>1. Sovereign Countries Registry</span></div>
-                            <div id="step-weather" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>2. Meteorological Conditions</span></div>
-                            <div id="step-economy" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>3. Macroeconomic Data</span></div>
-                            <div id="step-currency" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>4. FX Currency Markets</span></div>
-                            <div id="step-ports" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>5. Maritime Hubs & Ports</span></div>
-                            <div id="step-news" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>6. GNews Sentiment Feed</span></div>
-                            <div id="step-risk" style="display: flex; align-items: center; gap: 8px; opacity: 0.5;"><i data-lucide="circle" style="width:14px;height:14px"></i> <span>7. Calibrating Risk Scores</span></div>
-                        </div>
-                    </div>
-                `,
-                showConfirmButton: false,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                background: '#1B2433',
-                color: '#F8FAFC',
-                didOpen: async () => {
-                    lucide.createIcons();
-
-                    // Poll progress every 2 seconds with timeout (max 5 minutes)
-                    let pollCount = 0;
-                    const maxPolls = 150; // 150 * 2s = 300s = 5 minutes
-                    const pollInterval = setInterval(async () => {
-                        pollCount++;
-                        
-                        // Timeout check
-                        if (pollCount >= maxPolls) {
-                            clearInterval(pollInterval);
-                            setTimeout(() => {
-                                Swal.fire({
-                                    icon: 'warning',
-                                    title: 'Sync Timeout',
-                                    text: 'Synchronization took longer than expected. Please check the queue status.',
-                                    confirmButtonColor: '#FF6B00',
-                                    background: '#1B2433',
-                                    color: '#F8FAFC',
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Retry',
-                                    confirmButtonText: 'Continue'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        // Continue polling
-                                        pollCount = 0;
-                                        triggerStepSync();
-                                    } else if (result.isDismissed) {
-                                        // Retry sync
-                                        triggerStepSync();
-                                    }
-                                });
-                            }, 300);
-                            return;
-                        }
-
-                        try {
-                            const res = await fetch('/sync/progress/' + batchId, {
-                                headers: { 'Accept': 'application/json' }
-                            });
-                            const json = await res.json();
-
-                            if (!res.ok) {
-                                clearInterval(pollInterval);
-                                throw new Error('Failed to fetch progress');
-                            }
-
-                            // Update progress bar
-                            const pBar = document.getElementById('swal-sync-progress-bar');
-                            if (pBar) pBar.style.width = json.progress_percentage + '%';
-
-                            // Update status text
-                            const statusEl = document.getElementById('swal-sync-status');
-                            if (statusEl) {
-                                statusEl.textContent = `Stage: ${json.stage} | Progress: ${json.progress_percentage}% | Processed: ${json.processed_countries}/${json.total_countries}`;
-                            }
-
-                            // Update step indicators
-                            const stages = ['countries', 'weather', 'economy', 'currency', 'news', 'risk'];
-                            stages.forEach((stage, index) => {
-                                const el = document.getElementById('step-' + stage);
-                                if (el) {
-                                    if (json.stage === stage) {
-                                        el.style.opacity = '1';
-                                        el.innerHTML = '<span class="swal-spinner"></span> <span>Syncing ' + stage + '...</span>';
-                                    } else if (stages.indexOf(json.stage) > index) {
-                                        el.style.opacity = '1';
-                                        el.innerHTML = '<i data-lucide="check-circle" style="color:#10B981;width:14px;height:14px;display:inline-block"></i> <span style="font-weight:600;color:#f8fafc">Successfully Synced ' + stage + '</span>';
-                                    }
-                                }
-                            });
-                            lucide.createIcons();
-
-                            // Check if completed
-                            if (json.status === 'completed' || json.progress_percentage >= 100) {
-                                clearInterval(pollInterval);
-                                setTimeout(() => {
-                                    Swal.close();
-                                    
-                                    // Refresh dashboard data if on dashboard page
-                                    if (typeof loadDashboard === 'function') {
-                                        loadDashboard();
-                                    }
-                                    
-                                    // Refresh watchlist if on watchlist page
-                                    if (typeof refreshWatchlist === 'function') {
-                                        refreshWatchlist();
-                                    }
-                                    
-                                    // Refresh compare if on compare page
-                                    if (typeof refreshCompare === 'function') {
-                                        refreshCompare();
-                                    }
-                                    
-                                    // Show success toast
-                                    Swal.fire({
-                                        toast: true,
-                                        position: 'top-end',
-                                        icon: 'success',
-                                        title: 'Sync Completed Successfully',
-                                        showConfirmButton: false,
-                                        timer: 3000,
-                                        background: '#1B2433',
-                                        color: '#F8FAFC'
-                                    });
-                                }, 800);
-                            }
-
-                            // Check if failed
-                            if (json.status === 'failed') {
-                                clearInterval(pollInterval);
-                                setTimeout(() => {
-                                    Swal.fire({
-                                        icon: 'error',
-                                        title: 'Sync Failed',
-                                        text: json.error_message || 'Synchronization failed',
-                                        confirmButtonColor: '#FF6B00',
-                                        background: '#1B2433',
-                                        color: '#F8FAFC',
-                                        showCancelButton: true,
-                                        cancelButtonText: 'Cancel',
-                                        confirmButtonText: 'Retry'
-                                    }).then((result) => {
-                                        if (result.isConfirmed) {
-                                            triggerStepSync();
-                                        }
-                                    });
-                                }, 300);
-                            }
-
-                        } catch (err) {
-                            clearInterval(pollInterval);
-                            setTimeout(() => {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Sync Interrupted',
-                                    text: err.message || 'An error occurred during synchronization.',
-                                    confirmButtonColor: '#FF6B00',
-                                    background: '#1B2433',
-                                    color: '#F8FAFC',
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Cancel',
-                                    confirmButtonText: 'Retry'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        triggerStepSync();
-                                    }
-                                });
-                            }, 300);
-                        }
-                    }, 2000);
-                }
-            });
-        }
-
         document.addEventListener('click', function(e) {
             const el = e.target.closest('a, button');
             if (!el) return;
 
             const href = el.getAttribute('href') || '';
             const textContent = el.textContent || '';
-
-            // Handle main sync databases button with SweetAlert2 progress loader
-            if (el.classList.contains('sg-sync-btn')) {
-                e.preventDefault();
-                triggerStepSync();
-                return;
-            }
 
             const isSync = href.includes('/sync') || href.includes('/import') || textContent.toLowerCase().includes('sync') || textContent.toLowerCase().includes('import');
 

@@ -4,9 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Country;
 use App\Models\ActivityLog;
-use App\Models\WeatherData;
-use App\Models\EconomicData;
-use App\Models\CurrencyData;
 use App\Services\CountryService;
 use App\Services\LiveCountryDataService;
 use Illuminate\Http\Request;
@@ -23,30 +20,11 @@ class CountryController extends Controller
     }
 
     /**
-     * Overlay hasil fetch API real-time ke relasi weatherData/economicData/currencyData
-     * milik $country. Jika API gagal (null), data DB yang sudah ter-load tetap dipakai.
-     */
-    protected function attachLiveData(Country $country): void
-    {
-        if ($weather = $this->liveDataService->getWeather($country)) {
-            $country->setRelation('weatherData', new WeatherData($weather + ['country_id' => $country->id]));
-        }
-
-        if ($economy = $this->liveDataService->getEconomy($country)) {
-            $country->setRelation('economicData', new EconomicData($economy + ['country_id' => $country->id]));
-        }
-
-        if ($currency = $this->liveDataService->getCurrency($country, $country->currencyData)) {
-            $country->setRelation('currencyData', new CurrencyData($currency + ['country_id' => $country->id]));
-        }
-    }
-
-    /**
      * Menampilkan semua data negara
      */
     public function index(Request $request)
     {
-        $query = Country::with(['riskScore', 'weatherData', 'economicData', 'currencyData']);
+        $query = Country::with(['riskScore']);
 
         // Search
         if ($request->filled('search')) {
@@ -88,13 +66,13 @@ class CountryController extends Controller
     }
 
     /**
-     * Sinkronisasi data negara via World Bank API
+     * Sinkronisasi data negara via REST Countries API
      */
-    public function sync(CountryService $service)
+    public function import(CountryService $service)
     {
         try {
             $service->syncCountries();
-            ActivityLog::log('Sync', 'Synchronized countries with World Bank API.');
+            ActivityLog::log('Sync', 'Synchronized countries with REST Countries API.');
             return redirect()
                 ->route('countries.index')
                 ->with('success', 'Sinkronisasi data negara berhasil.');
@@ -142,8 +120,8 @@ class CountryController extends Controller
      */
     public function show(Country $country)
     {
-        $country->load(['riskScore', 'weatherData', 'economicData', 'currencyData', 'news' => fn($q) => $q->latest()->limit(5), 'ports']);
-        $this->attachLiveData($country);
+        $country->load(['riskScore', 'news' => fn($q) => $q->latest()->limit(5), 'ports']);
+        $this->liveDataService->attachLiveData($country);
 
         $riskHistory = \App\Models\RiskHistory::where('country_id', $country->id)
             ->orderBy('calculated_at', 'asc')
@@ -158,8 +136,8 @@ class CountryController extends Controller
      */
     public function dashboardData(Country $country)
     {
-        $country->load(['riskScore', 'weatherData', 'economicData', 'currencyData', 'news' => fn($q) => $q->latest()->limit(3), 'ports']);
-        $this->attachLiveData($country);
+        $country->load(['riskScore', 'news' => fn($q) => $q->latest()->limit(3), 'ports']);
+        $this->liveDataService->attachLiveData($country);
 
         return response()->json([
             'country' => [

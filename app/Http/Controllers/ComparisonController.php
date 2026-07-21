@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Country;
+use App\Services\LiveCountryDataService;
 use Illuminate\Http\Request;
 
 class ComparisonController extends Controller
 {
+    public function __construct(protected LiveCountryDataService $liveDataService)
+    {
+    }
+
     public function index(Request $request)
     {
         $countries = Country::orderBy('country_name')->get();
@@ -26,11 +31,15 @@ class ComparisonController extends Controller
 
         $selectedCountries = collect();
         if (count($selectedIds) >= 2) {
-            $selectedCountries = Country::with(['weatherData', 'economicData', 'currencyData', 'riskScore', 'news'])
+            $selectedCountries = Country::with(['riskScore', 'news'])
                 ->withCount('ports')
                 ->whereIn('id', $selectedIds)
                 ->get()
                 ->sortBy('country_name');
+
+            foreach ($selectedCountries as $country) {
+                $this->liveDataService->attachLiveData($country);
+            }
         }
 
         return view('comparison.index', compact('countries', 'selectedCountries'));

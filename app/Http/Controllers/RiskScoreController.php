@@ -36,7 +36,7 @@ class RiskScoreController extends Controller
 
     public function show(RiskScore $risk_score)
     {
-        $risk_score->load(['country.weatherData', 'country.economicData', 'country.currencyData', 'country.news', 'country.ports']);
+        $risk_score->load(['country.news', 'country.ports']);
         return view('risk-scores.show', [
             'riskScore' => $risk_score
         ]);

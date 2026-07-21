@@ -4,16 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Country;
-use App\Models\WeatherData;
-use App\Models\EconomicData;
-use App\Models\CurrencyData;
 use App\Models\News;
 use App\Models\Port;
 use App\Models\RiskScore;
+use App\Services\ExchangeRateService;
+use App\Services\LiveCountryDataService;
 use Illuminate\Http\Request;
 
 class ApiController extends Controller
 {
+    public function __construct(
+        protected LiveCountryDataService $liveDataService,
+        protected ExchangeRateService $exchangeRateService,
+    ) {
+    }
+
     /**
      * GET /api/countries
      */
@@ -37,91 +42,101 @@ class ApiController extends Controller
     }
 
     /**
-     * GET /api/weather
+     * GET /api/weather?country_id=
+     * Data cuaca real-time (bukan dari database) untuk satu negara.
      */
     public function weather(Request $request)
     {
-        $query = WeatherData::with('country');
-
-        if ($request->has('country_id')) {
-            $query->where('country_id', $request->country_id);
+        if (!$request->has('country_id')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Parameter country_id wajib diisi — data cuaca diambil real-time per negara, bukan daftar semua negara.',
+            ], 422);
         }
+
+        $country = Country::find($request->country_id);
+        if (!$country) {
+            return response()->json(['status' => 'error', 'message' => 'Country not found'], 404);
+        }
+
+        $weather = $this->liveDataService->getWeather($country);
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->get(),
+            'data' => $weather ? array_merge($weather, ['country_id' => $country->id]) : null,
         ]);
     }
 
     /**
-     * GET /api/economy
+     * GET /api/economy?country_id=
+     * Data ekonomi real-time (bukan dari database) untuk satu negara.
      */
     public function economy(Request $request)
     {
-        $query = EconomicData::with('country');
-
-        if ($request->has('country_id')) {
-            $query->where('country_id', $request->country_id);
+        if (!$request->has('country_id')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Parameter country_id wajib diisi — data ekonomi diambil real-time per negara, bukan daftar semua negara.',
+            ], 422);
         }
+
+        $country = Country::find($request->country_id);
+        if (!$country) {
+            return response()->json(['status' => 'error', 'message' => 'Country not found'], 404);
+        }
+
+        $economy = $this->liveDataService->getEconomy($country);
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->get(),
+            'data' => $economy ? array_merge($economy, ['country_id' => $country->id]) : null,
         ]);
     }
 
     /**
-     * GET /api/currency
+     * GET /api/currency[?country_id=]
+     * Tanpa country_id: kurs real-time semua negara sekaligus (1 panggilan API, di-cache).
+     * Dengan country_id: kurs real-time untuk satu negara.
      */
     public function currency(Request $request)
     {
-        $query = CurrencyData::with('country');
-
         if ($request->has('country_id')) {
-            $query->where('country_id', $request->country_id);
+            $country = Country::find($request->country_id);
+            if (!$country) {
+                return response()->json(['status' => 'error', 'message' => 'Country not found'], 404);
+            }
+
+            $currency = $this->liveDataService->getCurrency($country);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $currency ? array_merge($currency, ['country_id' => $country->id]) : null,
+            ]);
+        }
+
+        $rates = $this->exchangeRateService->getRates('USD');
+        $data = [];
+
+        if ($rates && isset($rates['rates'])) {
+            $countries = Country::whereNotNull('currency')->where('currency', '!=', '')->get();
+
+            foreach ($countries as $country) {
+                $code = strtoupper(trim(explode(',', $country->currency)[0] ?? ''));
+                if ($code && isset($rates['rates'][$code])) {
+                    $data[] = [
+                        'country_id' => $country->id,
+                        'country_name' => $country->country_name,
+                        'currency_code' => $code,
+                        'base_currency' => 'USD',
+                        'exchange_rate' => (float) $rates['rates'][$code],
+                    ];
+                }
+            }
         }
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->get(),
-        ]);
-    }
-
-    /**
-     * GET /api/latest-weather
-     */
-    public function latestWeather(Request $request)
-    {
-        $query = WeatherData::orderByDesc('updated_at');
-
-        if ($request->has('limit')) {
-            $query = $query->take($request->limit);
-        } else {
-            $query = $query->take(5);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $query->get(),
-        ]);
-    }
-
-    /**
-     * GET /api/latest-currencies
-     */
-    public function latestCurrencies(Request $request)
-    {
-        $query = CurrencyData::orderByDesc('last_updated');
-
-        if ($request->has('limit')) {
-            $query = $query->take($request->limit);
-        } else {
-            $query = $query->take(5);
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $query->get(),
+            'data' => $data,
         ]);
     }
 
@@ -172,7 +187,7 @@ class ApiController extends Controller
      */
     public function risk(Request $request)
     {
-        $query = RiskScore::with(['country.weatherData', 'country.economicData', 'country.currencyData', 'country.news']);
+        $query = RiskScore::with(['country.news']);
 
         if ($request->has('country_id')) {
             $query->where('country_id', $request->country_id);
@@ -200,28 +215,6 @@ class ApiController extends Controller
             $totalArticles = News::count();
             $totalWatchlists = \App\Models\Watchlist::count();
             $highRiskEntities = RiskScore::where('total_score', '>=', 51)->count();
-            $totalWeather = WeatherData::count();
-            $totalEconomy = EconomicData::count();
-            $totalCurrency = CurrencyData::count();
-
-            // Calculate currency metrics
-            $latestRate = CurrencyData::with('country')->orderByDesc('last_updated')->first();
-            $latestExchangeRate = $latestRate 
-                ? 'USD/' . $latestRate->currency_code . ': ' . number_format($latestRate->exchange_rate, 2) 
-                : '—';
-            $currencyUpdateTime = $latestRate && $latestRate->last_updated 
-                ? \Carbon\Carbon::parse($latestRate->last_updated)->diffForHumans() 
-                : '—';
-            
-            $strongest = CurrencyData::orderBy('exchange_rate', 'asc')->first();
-            $strongestCurrency = $strongest 
-                ? $strongest->currency_code . ' (' . number_format($strongest->exchange_rate, 2) . ')' 
-                : '—';
-
-            $weakest = CurrencyData::orderBy('exchange_rate', 'desc')->first();
-            $weakestCurrency = $weakest 
-                ? $weakest->currency_code . ' (' . number_format($weakest->exchange_rate, 2) . ')' 
-                : '—';
 
             $riskScores = RiskScore::all();
             $low      = $riskScores->filter(fn ($r) => $r->total_score < 26)->count();
@@ -250,49 +243,16 @@ class ApiController extends Controller
                 'critical' => 100 - round(($low / $riskTotal) * 100) - round(($medium / $riskTotal) * 100) - round(($high / $riskTotal) * 100),
             ];
 
-            // Today's Sync counter
-            $today = \Carbon\Carbon::today();
-            $todaysSync = 0;
-            $todaysSync += WeatherData::whereDate('updated_at', $today)->count();
-            $todaysSync += EconomicData::whereDate('updated_at', $today)->count();
-            $todaysSync += CurrencyData::whereDate('updated_at', $today)->count();
-            $todaysSync += Port::whereDate('updated_at', $today)->count();
-            $todaysSync += News::whereDate('updated_at', $today)->count();
-
-            // Last API Sync
-            $lastWeatherUpdate = WeatherData::max('updated_at');
-            $lastEconomyUpdate = EconomicData::max('updated_at');
-            $lastCurrencyUpdate = CurrencyData::max('updated_at');
+            // Last API Sync (hanya domain yang masih punya pipeline sync: ports & news)
             $lastPortsUpdate = Port::max('updated_at');
             $lastNewsUpdate = News::max('updated_at');
-            
+
             $lastSyncVal = collect([
-                $lastWeatherUpdate,
-                $lastEconomyUpdate,
-                $lastCurrencyUpdate,
                 $lastPortsUpdate,
                 $lastNewsUpdate
             ])->filter()->max();
-            
+
             $lastSyncStr = $lastSyncVal ? \Carbon\Carbon::parse($lastSyncVal)->diffForHumans() : 'Never';
-
-            // Gdp growth
-            $gdpGrowth = EconomicData::with('country')
-                ->whereNotNull('gdp_growth')
-                ->orderByDesc('gdp_growth')
-                ->take(10)
-                ->get()
-                ->map(function ($item) {
-                    $name = $item->country->country_name ?? 'N/A';
-                    $label = strlen($name) > 6 ? substr($name, 0, 5) . '..' : $name;
-
-                    return [
-                        'label' => $label,
-                        'value' => round((float) $item->gdp_growth, 1),
-                        'year'  => $item->data_year ?? date('Y'),
-                    ];
-                })
-                ->values();
 
             $criticalWarnings = RiskScore::with('country')
                 ->where('total_score', '>=', 26)
@@ -332,68 +292,7 @@ class ApiController extends Controller
                 'negative' => News::where('sentiment', 'Negative')->count(),
             ];
 
-            // Inflation Chart Data
-            $inflationData = EconomicData::with('country')
-                ->whereNotNull('inflation')
-                ->orderByDesc('inflation')
-                ->take(10)
-                ->get()
-                ->map(fn($item) => [
-                    'label' => strlen($item->country->country_name ?? '') > 6 ? substr($item->country->country_name, 0, 5) . '..' : ($item->country->country_name ?? 'N/A'),
-                    'value' => round((float) $item->inflation, 1)
-                ])->values();
-
-            // Temperature Chart Data
-            $tempData = WeatherData::with('country')
-                ->orderByDesc('temperature')
-                ->take(10)
-                ->get()
-                ->map(fn($w) => [
-                    'label' => strlen($w->country->country_name ?? '') > 6 ? substr($w->country->country_name, 0, 5) . '..' : ($w->country->country_name ?? 'N/A'),
-                    'value' => (float) $w->temperature
-                ])->values();
-
-            // Humidity Chart Data
-            $humidityData = WeatherData::with('country')
-                ->orderByDesc('humidity')
-                ->take(10)
-                ->get()
-                ->map(fn($w) => [
-                    'label' => strlen($w->country->country_name ?? '') > 6 ? substr($w->country->country_name, 0, 5) . '..' : ($w->country->country_name ?? 'N/A'),
-                    'value' => (float) $w->humidity
-                ])->values();
-
-            // Top GDP Chart Data
-            $topGdpData = EconomicData::with('country')
-                ->whereNotNull('gdp')
-                ->orderByDesc('gdp')
-                ->take(10)
-                ->get()
-                ->map(fn($item) => [
-                    'label' => strlen($item->country->country_name ?? '') > 6 ? substr($item->country->country_name, 0, 5) . '..' : ($item->country->country_name ?? 'N/A'),
-                    'value' => round($item->gdp / 1e9, 1)
-                ])->values();
-
-            // Top Currency Chart Data
-            $topCurrencyData = CurrencyData::orderByDesc(\Illuminate\Support\Facades\DB::raw('abs(change_percentage)'))
-                ->take(10)
-                ->get()
-                ->map(fn($c) => [
-                    'label' => $c->currency_code,
-                    'value' => round((float) abs($c->change_percentage), 2)
-                ])->values();
-
-            // Top Weather Data (Wind Speed)
-            $topWeatherData = WeatherData::with('country')
-                ->orderByDesc('wind_speed')
-                ->take(10)
-                ->get()
-                ->map(fn($w) => [
-                    'label' => strlen($w->country->country_name ?? '') > 6 ? substr($w->country->country_name, 0, 5) . '..' : ($w->country->country_name ?? 'N/A'),
-                    'value' => (float) $w->wind_speed
-                ])->values();
-
-            // Historical Trend Data
+            // Historical Trend Data (Risk saja — satu-satunya domain dengan tabel histori resmi)
             $riskTrend = \App\Models\RiskHistory::selectRaw('DATE(calculated_at) as date, avg(total_score) as avg_score')
                 ->groupBy('date')
                 ->orderBy('date', 'asc')
@@ -413,70 +312,14 @@ class ApiController extends Controller
                 }
             }
 
-            $weatherTrend = \App\Models\WeatherHistory::selectRaw('DATE(recorded_at) as date, avg(temperature) as avg_temp')
-                ->groupBy('date')
-                ->orderBy('date', 'asc')
-                ->take(30)
-                ->get()
-                ->map(fn($row) => [
-                    'label' => \Carbon\Carbon::parse($row->date)->format('M d'),
-                    'value' => round($row->avg_temp, 1)
-                ])->values();
-            if ($weatherTrend->isEmpty()) {
-                $avgCurrent = WeatherData::avg('temperature') ?? 25;
-                for ($i = 6; $i >= 0; $i--) {
-                    $weatherTrend->push([
-                        'label' => now()->subDays($i)->format('M d'),
-                        'value' => round($avgCurrent + rand(-3, 3), 1)
-                    ]);
-                }
-            }
-
-            $economyTrend = EconomicData::selectRaw('data_year, avg(gdp_growth) as avg_growth')
-                ->whereNotNull('gdp_growth')
-                ->groupBy('data_year')
-                ->orderBy('data_year', 'asc')
-                ->get()
-                ->map(fn($row) => [
-                    'label' => 'Year ' . $row->data_year,
-                    'value' => round($row->avg_growth, 2)
-                ])->values();
-            if ($economyTrend->isEmpty()) {
-                $avgCurrent = EconomicData::avg('gdp_growth') ?? 3.5;
-                for ($i = 5; $i >= 0; $i--) {
-                    $economyTrend->push([
-                        'label' => 'Year ' . (date('Y') - $i),
-                        'value' => round($avgCurrent + rand(-100, 100)/100, 2)
-                    ]);
-                }
-            }
-
-            $currencyTrend = \App\Models\CurrencyHistory::selectRaw('DATE(recorded_at) as date, avg(exchange_rate) as avg_rate')
-                ->groupBy('date')
-                ->orderBy('date', 'asc')
-                ->take(30)
-                ->get()
-                ->map(fn($row) => [
-                    'label' => \Carbon\Carbon::parse($row->date)->format('M d'),
-                    'value' => round($row->avg_rate, 4)
-                ])->values();
-            if ($currencyTrend->isEmpty()) {
-                $avgCurrent = CurrencyData::avg('exchange_rate') ?? 1.0;
-                for ($i = 6; $i >= 0; $i--) {
-                    $currencyTrend->push([
-                        'label' => now()->subDays($i)->format('M d'),
-                        'value' => round($avgCurrent + rand(-100, 100)/5000, 4)
-                    ]);
-                }
-            }
-
-            // Top countries risk list with full indicators
-            $topRisks = RiskScore::with(['country.weatherData', 'country.economicData', 'country.currencyData', 'country.news'])
+            // Top countries risk list dengan indikator real-time (dibatasi 10 negara)
+            $topRisks = RiskScore::with(['country.news'])
                 ->orderByDesc('total_score')
                 ->take(10)
                 ->get()
                 ->map(function ($rs) {
-                    $gdpVal = $rs->country->economicData->gdp ?? null;
+                    $economy = $this->liveDataService->getEconomy($rs->country);
+                    $gdpVal = $economy['gdp'] ?? null;
                     if ($gdpVal) {
                         if ($gdpVal >= 1e12) $gdpStr = '$' . number_format($gdpVal / 1e12, 1) . 'T';
                         elseif ($gdpVal >= 1e9) $gdpStr = '$' . number_format($gdpVal / 1e9, 1) . 'B';
@@ -485,11 +328,11 @@ class ApiController extends Controller
                         $gdpStr = 'N/A';
                     }
 
-                    $weatherVal = $rs->country->weatherData;
-                    $weatherStr = $weatherVal ? $weatherVal->temperature . '°C, ' . ($weatherVal->weather_condition ?? '') : 'N/A';
+                    $weather = $this->liveDataService->getWeather($rs->country);
+                    $weatherStr = $weather ? $weather['temperature'] . '°C, ' . ($weather['weather_condition'] ?? '') : 'N/A';
 
-                    $currencyVal = $rs->country->currencyData;
-                    $currencyStr = $currencyVal ? $currencyVal->currency_code . ' (' . number_format($currencyVal->exchange_rate, 2) . ')' : 'N/A';
+                    $currency = $this->liveDataService->getCurrency($rs->country);
+                    $currencyStr = $currency ? $currency['currency_code'] . ' (' . number_format($currency['exchange_rate'], 2) . ')' : 'N/A';
 
                     $latestNews = $rs->country->news->sortByDesc('published_at')->first();
                     $newsStr = $latestNews ? $latestNews->title : 'No recent news';
@@ -510,7 +353,7 @@ class ApiController extends Controller
                 })->values();
 
             // Top Safe Countries
-            $topSafe = RiskScore::with(['country.weatherData', 'country.economicData', 'country.currencyData'])
+            $topSafe = RiskScore::with(['country'])
                 ->orderBy('total_score')
                 ->take(10)
                 ->get()
@@ -522,19 +365,6 @@ class ApiController extends Controller
                         'level' => $rs->risk_level,
                     ];
                 })->values();
-
-            // Recent Weather Alerts
-            $weatherAlerts = WeatherData::with('country')
-                ->orderByDesc('storm_risk')
-                ->take(8)
-                ->get()
-                ->map(fn($w) => [
-                    'flag' => $w->country->flag ?? null,
-                    'country_name' => $w->country->country_name ?? 'Unknown',
-                    'temp' => $w->temperature,
-                    'condition' => $w->weather_condition,
-                    'storm_risk' => $w->storm_risk
-                ])->values();
 
             // Latest News
             $latestNewsList = News::with('country')->latest('published_at')->take(6)->get()->map(fn($n) => [
@@ -548,15 +378,6 @@ class ApiController extends Controller
                 'url'          => $n->url
             ])->values();
 
-            // Latest Currency Update
-            $latestCurrencyUpdate = CurrencyData::with('country')->orderByDesc('last_updated')->take(8)->get()->map(fn($c) => [
-                'currency_code' => $c->currency_code,
-                'country_name' => $c->country->country_name ?? 'N/A',
-                'exchange_rate' => $c->exchange_rate,
-                'change_percentage' => $c->change_percentage,
-                'last_updated' => $c->last_updated ? $c->last_updated->diffForHumans() : '—'
-            ])->values();
-
             // Most Active Ports
             $activePorts = Port::with('country')->orderByDesc('updated_at')->take(8)->get()->map(fn($p) => [
                 'port_name' => $p->port_name,
@@ -568,16 +389,6 @@ class ApiController extends Controller
                 'lng' => $p->longitude
             ])->values();
 
-            // World Economic Overview
-            $economicOverview = EconomicData::with('country')->orderByDesc('gdp')->take(8)->get()->map(fn($e) => [
-                'flag' => $e->country->flag ?? null,
-                'country_name' => $e->country->country_name ?? 'N/A',
-                'gdp' => $e->gdp,
-                'gdp_growth' => $e->gdp_growth,
-                'inflation' => $e->inflation,
-                'data_year' => $e->data_year
-            ])->values();
-
             // Recent Watchlist
             $recentWatchlist = \App\Models\Watchlist::with(['country.riskScore'])->latest()->take(6)->get()->map(fn($w) => [
                 'company_name' => $w->company_name,
@@ -587,13 +398,11 @@ class ApiController extends Controller
                 'risk_level' => $w->country->riskScore->risk_level ?? 'Low'
             ])->values();
 
-            // Live API Status checks
+            // Live API Status checks (hanya domain yang masih punya sync log — weather/economy/currency
+            // sekarang real-time murni, tanpa job sync yang bisa gagal/dicatat)
             $apiStatus = [];
             $stages = [
                 'news' => 'GNews API',
-                'weather' => 'Open-Meteo Weather API',
-                'economy' => 'World Bank Indicators API',
-                'currency' => 'ExchangeRate FX Gateway'
             ];
             foreach ($stages as $stage => $name) {
                 $recentFailure = \App\Models\SyncLog::where('stage', $stage)
@@ -628,45 +437,23 @@ class ApiController extends Controller
                         'totalWeather'     => $totalWeather,
                         'totalEconomy'     => $totalEconomy,
                         'totalCurrency'    => $totalCurrency,
-                        'latestExchangeRate' => $latestExchangeRate,
-                        'currencyUpdateTime' => $currencyUpdateTime,
-                        'strongestCurrency' => $strongestCurrency,
-                        'weakestCurrency' => $weakestCurrency,
                         'criticalRisk'     => $critical,
                         'highRisk'         => $high,
                         'mediumRisk'       => $medium,
                         'lowRisk'          => $low,
-                        'todaysSync'       => $todaysSync,
                         'lastSyncStr'      => $lastSyncStr,
                     ],
                     'riskProfile'          => $riskProfile,
-                    'gdpGrowth'            => $gdpGrowth->toArray(),
-                    'currencyTrend'        => $currencyTrend->toArray(),
                     'newsSentiment'        => $newsSentiment,
-                    'inflationData'        => $inflationData->toArray(),
-                    'tempData'             => $tempData->toArray(),
-                    'humidityData'         => $humidityData->toArray(),
-                    'weatherTrend'         => $weatherTrend->toArray(),
-                    'topGdpData'           => $topGdpData->toArray(),
-                    'topCurrencyData'      => $topCurrencyData->toArray(),
-                    'topWeatherData'       => $topWeatherData->toArray(),
                     'topRisks'             => $topRisks->toArray(),
                     'riskTrend'            => $riskTrend->toArray(),
                     'topSafe'              => $topSafe->toArray(),
-                    'weatherAlerts'        => $weatherAlerts->toArray(),
                     'latestNewsList'       => $latestNewsList->toArray(),
-                    'latestCurrencyUpdate' => $latestCurrencyUpdate->toArray(),
                     'activePorts'          => $activePorts->toArray(),
-                    'economicOverview'     => $economicOverview->toArray(),
                     'recentWatchlist'      => $recentWatchlist->toArray(),
-                    'lastSyncStr'          => $lastSyncStr,
                     'criticalWarnings'     => $criticalWarnings->toArray(),
                     'alertCount'           => $alertCount,
                     'apiStatus'            => $apiStatus,
-                    'riskTrend'            => $riskTrend->toArray(),
-                    'weatherTrend'         => $weatherTrend->toArray(),
-                    'economyTrend'         => $economyTrend->toArray(),
-                    'currencyTrend'        => $currencyTrend->toArray(),
                     'generatedAt'          => now()->toIso8601String(),
                 ]),
             ], 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

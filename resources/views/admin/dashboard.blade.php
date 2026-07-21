@@ -37,42 +37,6 @@
             <p class="text-xs text-slate-400">Negara yang dimonitor</p>
         </div>
 
-        <!-- Weather -->
-        <div class="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-colors">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 bg-cyan-500/20 rounded-xl flex items-center justify-center">
-                    <i data-lucide="cloud" class="w-6 h-6 text-cyan-400"></i>
-                </div>
-                <span class="text-xs text-slate-400">Weather Data</span>
-            </div>
-            <h3 class="text-3xl font-bold text-white mb-2">{{ $totalWeather }}</h3>
-            <p class="text-xs text-slate-400">Data cuaca tercatat</p>
-        </div>
-
-        <!-- Economy -->
-        <div class="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-colors">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                    <i data-lucide="trending-up" class="w-6 h-6 text-purple-400"></i>
-                </div>
-                <span class="text-xs text-slate-400">Economy Data</span>
-            </div>
-            <h3 class="text-3xl font-bold text-white mb-2">{{ $totalEconomy }}</h3>
-            <p class="text-xs text-slate-400">Data ekonomi tercatat</p>
-        </div>
-
-        <!-- Currency -->
-        <div class="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-colors">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
-                    <i data-lucide="dollar-sign" class="w-6 h-6 text-amber-400"></i>
-                </div>
-                <span class="text-xs text-slate-400">Currency Data</span>
-            </div>
-            <h3 class="text-3xl font-bold text-white mb-2">{{ $totalCurrency }}</h3>
-            <p class="text-xs text-slate-400">Data mata uang tercatat</p>
-        </div>
-
         <!-- Ports -->
         <div class="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-colors">
             <div class="flex items-center justify-between mb-4">
@@ -126,24 +90,6 @@
         <div class="bg-white/5 border border-white/10 rounded-xl p-6">
             <h3 class="text-lg font-semibold text-white mb-4">API Activity</h3>
             <canvas id="apiActivityChart" height="200"></canvas>
-        </div>
-
-        <!-- Weather Trend Chart -->
-        <div class="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">Weather Trend (Temperature)</h3>
-            <canvas id="weatherTrendChart" height="200"></canvas>
-        </div>
-
-        <!-- Currency Trend Chart -->
-        <div class="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">Currency Trend</h3>
-            <canvas id="currencyTrendChart" height="200"></canvas>
-        </div>
-
-        <!-- Economy Trend Chart -->
-        <div class="bg-white/5 border border-white/10 rounded-xl p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">Economy Trend (GDP)</h3>
-            <canvas id="economyTrendChart" height="200"></canvas>
         </div>
 
         <!-- News Trend Chart -->
@@ -330,60 +276,6 @@
                     label: 'API Calls',
                     data: @json($apiActivity->pluck('count')),
                     backgroundColor: '#10b981'
-                }]
-            },
-            options: chartOptions
-        });
-
-        // Weather Trend Chart
-        const weatherTrendCtx = document.getElementById('weatherTrendChart').getContext('2d');
-        new Chart(weatherTrendCtx, {
-            type: 'line',
-            data: {
-                labels: @json($weatherTrend->pluck('date')),
-                datasets: [{
-                    label: 'Temperature (°C)',
-                    data: @json($weatherTrend->pluck('temperature')),
-                    borderColor: '#06b6d4',
-                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: chartOptions
-        });
-
-        // Currency Trend Chart
-        const currencyTrendCtx = document.getElementById('currencyTrendChart').getContext('2d');
-        new Chart(currencyTrendCtx, {
-            type: 'line',
-            data: {
-                labels: @json($currencyTrend->pluck('date')),
-                datasets: [{
-                    label: 'Exchange Rate',
-                    data: @json($currencyTrend->pluck('rate')),
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: chartOptions
-        });
-
-        // Economy Trend Chart
-        const economyTrendCtx = document.getElementById('economyTrendChart').getContext('2d');
-        new Chart(economyTrendCtx, {
-            type: 'line',
-            data: {
-                labels: @json($economyTrend->pluck('month')),
-                datasets: [{
-                    label: 'GDP (Billion USD)',
-                    data: @json($economyTrend->pluck('gdp')),
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4
                 }]
             },
             options: chartOptions

@@ -25,10 +25,6 @@
             <i data-lucide="activity" class="w-3.5 h-3.5"></i>
             Active APIs: Live Grid
         </div>
-        <a href="{{ route('sync.all') }}" class="sg-sync-btn">
-            <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin-slow"></i>
-            Sync All APIs
-        </a>
     </div>
 </div>
 
@@ -144,8 +140,8 @@
             
             <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-2">Quick Access</span>
             <div class="grid grid-cols-2 gap-2">
-                <a href="{{ route('sync.all') }}" class="px-3 py-2 bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 text-orange-400 font-bold rounded-lg text-center text-xs transition-colors flex items-center justify-center gap-1.5">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync All
+                <a href="{{ route('countries.index') }}" class="px-3 py-2 bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 text-orange-400 font-bold rounded-lg text-center text-xs transition-colors flex items-center justify-center gap-1.5">
+                    <i data-lucide="globe" class="w-3.5 h-3.5"></i> Countries
                 </a>
                 <a href="{{ route('risk-scores.index') }}" class="px-3 py-2 bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 font-bold rounded-lg text-center text-xs transition-colors flex items-center justify-center gap-1.5">
                     <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> Risks

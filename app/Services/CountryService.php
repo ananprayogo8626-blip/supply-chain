@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Country;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -81,5 +82,40 @@ class CountryService
             Log::error('Exception while fetching countries: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Fetch all countries from the external API and upsert them into the `countries` table.
+     * Used by the manual "Sync from API" button (single synchronous run, no batching).
+     *
+     * @return array{created: int, updated: int}
+     */
+    public function syncCountries(): array
+    {
+        $countries = $this->getAllCountries();
+
+        $created = 0;
+        $updated = 0;
+
+        foreach ($countries as $country) {
+            if (empty($country['country_code']) || empty($country['country_name'])) {
+                continue;
+            }
+
+            $existing = Country::withTrashed()->where('country_code', $country['country_code'])->first();
+
+            if ($existing) {
+                $existing->update($country);
+                if ($existing->trashed()) {
+                    $existing->restore();
+                }
+                $updated++;
+            } else {
+                Country::create($country);
+                $created++;
+            }
+        }
+
+        return ['created' => $created, 'updated' => $updated];
     }
 }

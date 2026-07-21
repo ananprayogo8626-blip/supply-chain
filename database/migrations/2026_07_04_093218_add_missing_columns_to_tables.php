@@ -15,10 +15,6 @@ return new class extends Migration
             $table->string('iso3', 3)->nullable()->after('country_code');
             $table->string('subregion')->nullable()->after('region');
         });
-
-        Schema::table('economic_data', function (Blueprint $table) {
-            $table->decimal('gdp_growth', 8, 2)->nullable()->after('gdp');
-        });
     }
 
     /**
@@ -28,10 +24,6 @@ return new class extends Migration
     {
         Schema::table('countries', function (Blueprint $table) {
             $table->dropColumn(['iso3', 'subregion']);
-        });
-
-        Schema::table('economic_data', function (Blueprint $table) {
-            $table->dropColumn('gdp_growth');
         });
     }
 };

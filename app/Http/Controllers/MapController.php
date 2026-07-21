@@ -9,7 +9,7 @@ class MapController extends Controller
 {
     public function index()
     {
-        $countries = Country::with(['riskScore', 'weatherData', 'economicData', 'currencyData', 'news'])
+        $countries = Country::with(['riskScore', 'news'])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->get();

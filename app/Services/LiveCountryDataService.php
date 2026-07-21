@@ -2,14 +2,17 @@
 
 namespace App\Services;
 
+use App\DTO\CurrencySnapshot;
+use App\DTO\EconomicSnapshot;
+use App\DTO\WeatherSnapshot;
 use App\Models\Country;
-use App\Models\CurrencyData;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Mengambil data weather/economy/currency real-time dari service API yang sudah ada,
- * untuk menggantikan tampilan data DB tanpa mengubah skema atau pipeline sync.
- * Mengembalikan null bila API gagal, sehingga caller jatuh ke data DB sebagai fallback.
+ * Sumber tunggal data weather/economy/currency real-time (tanpa persistensi DB),
+ * dipakai oleh semua controller yang perlu menampilkan data ini untuk satu atau
+ * beberapa negara (Country show/dashboard, comparison, watchlist, risk score, map).
  */
 class LiveCountryDataService
 {
@@ -18,6 +21,26 @@ class LiveCountryDataService
         protected WorldBankService $worldBankService,
         protected ExchangeRateService $exchangeRateService,
     ) {
+    }
+
+    /**
+     * Timpa relasi weatherData/economicData/currencyData milik $country dengan
+     * snapshot live API (DTO, bukan Eloquent). Kalau live fetch gagal, relasi
+     * yang sebelumnya di-set (kalau ada) dibiarkan apa adanya.
+     */
+    public function attachLiveData(Country $country): void
+    {
+        if ($weather = $this->getWeather($country)) {
+            $country->setRelation('weatherData', WeatherSnapshot::fromArray($weather));
+        }
+
+        if ($economy = $this->getEconomy($country)) {
+            $country->setRelation('economicData', EconomicSnapshot::fromArray($economy));
+        }
+
+        if ($currency = $this->getCurrency($country)) {
+            $country->setRelation('currencyData', CurrencySnapshot::fromArray($currency));
+        }
     }
 
     public function getWeather(Country $country): ?array
@@ -63,7 +86,19 @@ class LiveCountryDataService
         }
     }
 
-    public function getCurrency(Country $country, ?CurrencyData $existingDbRow): ?array
+    /**
+     * Deret waktu multi-tahun untuk GDP Trend / Inflation Trend chart, langsung dari
+     * World Bank API (tidak perlu tabel histori sendiri).
+     */
+    public function getEconomyHistory(Country $country, string $indicator, int $years = 10): array
+    {
+        $toYear = (int) now()->year - 1; // data World Bank umumnya lag 1 tahun
+        $fromYear = $toYear - $years;
+
+        return $this->worldBankService->getIndicatorSeries($country->country_code, $indicator, $fromYear, $toYear);
+    }
+
+    public function getCurrency(Country $country): ?array
     {
         $currencyCodes = array_map('trim', explode(',', $country->currency ?? ''));
         $currencyCode = $currencyCodes[0] ?? null;
@@ -79,16 +114,18 @@ class LiveCountryDataService
         }
 
         $changePercentage = 0.0;
-        if ($existingDbRow && $existingDbRow->exchange_rate) {
-            $previous = (float) $existingDbRow->exchange_rate;
-            if ($previous > 0) {
-                $changePercentage = (($rate - $previous) / $previous) * 100;
-            }
+        $prevCacheKey = "currency_prev_rate_{$country->id}";
+        $previous = Cache::get($prevCacheKey);
+
+        if ($previous !== null && $previous > 0) {
+            $changePercentage = (($rate - $previous) / $previous) * 100;
         }
+
+        Cache::put($prevCacheKey, $rate, now()->addDays(7));
 
         return [
             'currency_code' => $currencyCode,
-            'currency_name' => $existingDbRow->currency_name ?? $currencyCode,
+            'currency_name' => $currencyCode,
             'base_currency' => 'USD',
             'exchange_rate' => $rate,
             'change_percentage' => $changePercentage,

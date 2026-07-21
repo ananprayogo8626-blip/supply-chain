@@ -5,18 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\Watchlist;
 use App\Models\Country;
 use App\Models\ActivityLog;
+use App\Services\LiveCountryDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class WatchlistController extends Controller
 {
+    public function __construct(protected LiveCountryDataService $liveDataService)
+    {
+    }
+
     /**
      * Menampilkan semua watchlist
      */
     public function index(Request $request)
     {
-        $query = Watchlist::with(['country.riskScore', 'country.weatherData', 'country.news'])
+        $query = Watchlist::with(['country.riskScore', 'country.news'])
             ->where('user_id', Auth::id());
 
         // Search
@@ -44,6 +49,12 @@ class WatchlistController extends Controller
         }
 
         $watchlists = $query->latest()->paginate(15)->withQueryString();
+
+        foreach ($watchlists as $watchlist) {
+            if ($watchlist->country) {
+                $this->liveDataService->attachLiveData($watchlist->country);
+            }
+        }
 
         return view('watchlists.index', compact('watchlists'));
     }

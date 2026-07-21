@@ -22,9 +22,6 @@ class SyncAll extends Command
 
         $commands = [
             'countries' => 'sync:countries',
-            'weather' => 'sync:weather',
-            'economy' => 'sync:economy',
-            'currency' => 'sync:currency',
             'ports' => 'sync:ports',
             'news' => 'sync:news',
             'risk' => 'sync:risk',

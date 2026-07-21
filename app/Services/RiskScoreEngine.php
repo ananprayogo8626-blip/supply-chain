@@ -3,9 +3,6 @@
 namespace App\Services;
 
 use App\Models\Country;
-use App\Models\WeatherData;
-use App\Models\EconomicData;
-use App\Models\CurrencyData;
 use App\Models\News;
 use App\Models\Port;
 use App\Models\RiskScore;
@@ -138,11 +135,6 @@ class RiskScoreEngine
         $weather = $this->liveDataService->getWeather($country);
 
         if (!$weather) {
-            $dbWeather = WeatherData::where('country_id', $country->id)->first();
-            $weather = $dbWeather ? $dbWeather->only(['storm_risk', 'rainfall', 'wind_speed', 'temperature']) : null;
-        }
-
-        if (!$weather) {
             return 30; // default cache fallback
         }
 
@@ -177,11 +169,6 @@ class RiskScoreEngine
         $economy = $this->liveDataService->getEconomy($country);
 
         if (!$economy) {
-            $dbEconomy = EconomicData::where('country_id', $country->id)->first();
-            $economy = $dbEconomy ? $dbEconomy->only(['gdp', 'inflation', 'exports', 'imports']) : null;
-        }
-
-        if (!$economy) {
             return 30; // default cache fallback
         }
 
@@ -214,12 +201,7 @@ class RiskScoreEngine
      */
     protected function calculateCurrencyScore(Country $country): int
     {
-        $dbCurrency = CurrencyData::where('country_id', $country->id)->first();
-        $currency = $this->liveDataService->getCurrency($country, $dbCurrency);
-
-        if (!$currency) {
-            $currency = $dbCurrency ? $dbCurrency->only(['exchange_rate', 'change_percentage']) : null;
-        }
+        $currency = $this->liveDataService->getCurrency($country);
 
         if (!$currency) {
             return 30; // default cache fallback

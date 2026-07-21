@@ -22,7 +22,7 @@ User::create([
     'name' => 'User',
     'email' => 'user@gmail.com',
     'password' => Hash::make('12345'),
-    'role' => 'user',
+    'role' => 'viewer',
     'email_verified_at' => now(),
 ]);
 

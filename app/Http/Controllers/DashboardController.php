@@ -7,9 +7,6 @@ use App\Models\Port;
 use App\Models\RiskScore;
 use App\Models\Watchlist;
 use App\Models\News;
-use App\Models\WeatherData;
-use App\Models\EconomicData;
-use App\Models\CurrencyData;
 use App\Models\SyncLog;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
@@ -38,10 +35,7 @@ class DashboardController extends Controller
                 'totalPorts'           => Port::count(),
                 'totalNews'            => News::count(),
                 'totalArticles'        => News::count(),
-                'totalWeatherRecords'  => WeatherData::count(),
                 'totalWatchlists'      => Watchlist::count(),
-                'totalCurrency'        => CurrencyData::count(),
-                'totalEconomy'         => EconomicData::count(),
                 // Risk related
                 'criticalRiskCountries' => $criticalRisk,
                 'highRiskCountries'     => $highRisk,
@@ -56,35 +50,6 @@ class DashboardController extends Controller
                 'highestRiskCountry'   => RiskScore::with('country')->orderBy('total_score', 'desc')->first(),
                 'lowestRiskCountry'    => RiskScore::with('country')->orderBy('total_score', 'asc')->first(),
                 'averageRisk'          => RiskScore::avg('total_score'),
-                // Weather extremes
-                'highestTemperature'   => WeatherData::orderBy('temperature', 'desc')->first(),
-                'lowestTemperature'    => WeatherData::orderBy('temperature', 'asc')->first(),
-                'strongestWind'        => WeatherData::orderBy('wind_speed', 'desc')->first(),
-                'highestHumidity'      => WeatherData::orderBy('humidity', 'desc')->first(),
-                // Economic leaders
-                'highestGDP'           => EconomicData::with('country')->orderBy('gdp', 'desc')->first(),
-                'highestInflation'     => EconomicData::with('country')->orderBy('inflation', 'desc')->first(),
-                'highestExport'        => EconomicData::with('country')->orderBy('exports', 'desc')->first(),
-                'highestImport'        => EconomicData::with('country')->orderBy('imports', 'desc')->first(),
-                // Currency details
-                'latestExchangeRate'   => ($latestRate = CurrencyData::orderByDesc('last_updated')->first()) 
-                                            ? 'USD/' . $latestRate->currency_code . ': ' . number_format($latestRate->exchange_rate, 2) 
-                                            : '—',
-                'currencyUpdateTime'   => ($latestRate && $latestRate->last_updated) 
-                                            ? \Carbon\Carbon::parse($latestRate->last_updated)->diffForHumans() 
-                                            : '—',
-                'latestCurrency'       => ($latestRate = CurrencyData::orderByDesc('last_updated')->first())
-                                            ? 'USD/' . $latestRate->currency_code . ': ' . number_format($latestRate->exchange_rate, 2)
-                                            : '—',
-                'currencyUpdatedAt'    => ($latestRate && $latestRate->last_updated)
-                                            ? \Carbon\Carbon::parse($latestRate->last_updated)->diffForHumans()
-                                            : '—',
-                'strongestCurrency'    => ($strongest = CurrencyData::orderBy('exchange_rate', 'asc')->first()) 
-                                            ? $strongest->currency_code . ' (' . number_format($strongest->exchange_rate, 2) . ')' 
-                                            : '—',
-                'weakestCurrency'      => ($weakest = CurrencyData::orderBy('exchange_rate', 'desc')->first()) 
-                                            ? $weakest->currency_code . ' (' . number_format($weakest->exchange_rate, 2) . ')' 
-                                            : '—',
                 // Dynamic data for JavaScript
                 'latestNews'           => News::with('country')->latest('published_at')->take(10)->get(),
                 'recentSyncLogs'       => SyncLog::with('country')->latest('failed_at')->take(5)->get(),

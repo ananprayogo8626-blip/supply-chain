@@ -32,30 +32,6 @@ class Country extends Model
     |--------------------------------------------------------------------------
     */
 
-    // Weather
-    public function weatherData()
-    {
-        return $this->hasOne(WeatherData::class);
-    }
-
-    // Economy
-    public function economicData()
-    {
-        return $this->hasOne(EconomicData::class);
-    }
-
-    // Economic History
-    public function economicHistories()
-    {
-        return $this->hasMany(EconomicHistory::class);
-    }
-
-    // Currency
-    public function currencyData()
-    {
-        return $this->hasOne(CurrencyData::class);
-    }
-
     // Ports
     public function ports()
     {

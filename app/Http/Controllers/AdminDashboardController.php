@@ -3,9 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Country;
-use App\Models\WeatherData;
-use App\Models\EconomicData;
-use App\Models\CurrencyData;
 use App\Models\Port;
 use App\Models\News;
 use App\Models\RiskScore;
@@ -29,9 +26,6 @@ class AdminDashboardController extends Controller
                 // Statistik jumlah data
                 'totalUsers' => User::count(),
                 'totalCountries' => Country::count(),
-                'totalWeather' => WeatherData::count(),
-                'totalEconomy' => EconomicData::count(),
-                'totalCurrency' => CurrencyData::count(),
                 'totalPorts' => Port::count(),
                 'totalNews' => News::count(),
                 'totalWatchlists' => Watchlist::count(),
@@ -55,9 +49,6 @@ class AdminDashboardController extends Controller
                 // Data untuk grafik
                 'userGrowth' => collect($this->getUserGrowthData()),
                 'apiActivity' => collect($this->getApiActivityData()),
-                'weatherTrend' => collect($this->getWeatherTrendData()),
-                'currencyTrend' => collect($this->getCurrencyTrendData()),
-                'economyTrend' => collect($this->getEconomyTrendData()),
                 'newsTrend' => collect($this->getNewsTrendData()),
                 'riskTrend' => collect($this->getRiskTrendData()),
                 
@@ -102,61 +93,6 @@ class AdminDashboardController extends Controller
             $data[] = [
                 'date' => $date->format('M d'),
                 'count' => $count,
-            ];
-        }
-        return $data;
-    }
-
-    /**
-     * Ambil data trend weather untuk grafik
-     */
-    private function getWeatherTrendData()
-    {
-        $data = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = now()->subDays($i);
-            $avgTemp = WeatherData::whereDate('updated_at', $date->format('Y-m-d'))
-                ->avg('temperature');
-            $data[] = [
-                'date' => $date->format('M d'),
-                'temperature' => round($avgTemp ?? 0, 1),
-            ];
-        }
-        return $data;
-    }
-
-    /**
-     * Ambil data trend currency untuk grafik
-     */
-    private function getCurrencyTrendData()
-    {
-        $data = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = now()->subDays($i);
-            $avgRate = CurrencyData::whereDate('last_updated', $date->format('Y-m-d'))
-                ->avg('exchange_rate');
-            $data[] = [
-                'date' => $date->format('M d'),
-                'rate' => round($avgRate ?? 0, 4),
-            ];
-        }
-        return $data;
-    }
-
-    /**
-     * Ambil data trend economy untuk grafik
-     */
-    private function getEconomyTrendData()
-    {
-        $data = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
-            $avgGdp = EconomicData::whereMonth('updated_at', $date->month)
-                ->whereYear('updated_at', $date->year)
-                ->avg('gdp');
-            $data[] = [
-                'month' => $date->format('M Y'),
-                'gdp' => round(($avgGdp ?? 0) / 1e9, 2), // return in Billions USD
             ];
         }
         return $data;

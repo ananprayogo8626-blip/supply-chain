@@ -30,9 +30,6 @@ class SyncWorldData extends Command
 
         $commands = [
             'sync:countries' => 'Importing Countries Data...',
-            'sync:economy' => 'Syncing Economic Data...',
-            'sync:weather' => 'Syncing Weather Data...',
-            'sync:currency' => 'Syncing Exchange Rates...',
             'sync:ports' => 'Importing Ports Data...',
             'sync:news' => 'Syncing News Data...',
             'sync:risk' => 'Calculating Risk Scores...',

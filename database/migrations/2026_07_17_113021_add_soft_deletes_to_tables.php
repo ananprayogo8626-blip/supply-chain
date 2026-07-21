@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        foreach (['users', 'countries', 'weather_data', 'economic_data', 'currency_data', 'ports', 'news', 'risk_scores', 'watchlists'] as $table) {
+        foreach (['users', 'countries', 'ports', 'news', 'risk_scores', 'watchlists'] as $table) {
             Schema::table($table, function (Blueprint $table) {
                 $table->softDeletes();
             });
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        foreach (['users', 'countries', 'weather_data', 'economic_data', 'currency_data', 'ports', 'news', 'risk_scores', 'watchlists'] as $table) {
+        foreach (['users', 'countries', 'ports', 'news', 'risk_scores', 'watchlists'] as $table) {
             Schema::table($table, function (Blueprint $table) {
                 $table->dropSoftDeletes();
             });
