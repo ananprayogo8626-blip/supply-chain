@@ -4,16 +4,41 @@ namespace App\Http\Controllers;
 
 use App\Models\Country;
 use App\Models\ActivityLog;
+use App\Models\WeatherData;
+use App\Models\EconomicData;
+use App\Models\CurrencyData;
 use App\Services\CountryService;
+use App\Services\LiveCountryDataService;
 use Illuminate\Http\Request;
 
 class CountryController extends Controller
 {
     protected $countryService;
+    protected $liveDataService;
 
-    public function __construct(CountryService $countryService)
+    public function __construct(CountryService $countryService, LiveCountryDataService $liveDataService)
     {
         $this->countryService = $countryService;
+        $this->liveDataService = $liveDataService;
+    }
+
+    /**
+     * Overlay hasil fetch API real-time ke relasi weatherData/economicData/currencyData
+     * milik $country. Jika API gagal (null), data DB yang sudah ter-load tetap dipakai.
+     */
+    protected function attachLiveData(Country $country): void
+    {
+        if ($weather = $this->liveDataService->getWeather($country)) {
+            $country->setRelation('weatherData', new WeatherData($weather + ['country_id' => $country->id]));
+        }
+
+        if ($economy = $this->liveDataService->getEconomy($country)) {
+            $country->setRelation('economicData', new EconomicData($economy + ['country_id' => $country->id]));
+        }
+
+        if ($currency = $this->liveDataService->getCurrency($country, $country->currencyData)) {
+            $country->setRelation('currencyData', new CurrencyData($currency + ['country_id' => $country->id]));
+        }
     }
 
     /**
@@ -118,6 +143,7 @@ class CountryController extends Controller
     public function show(Country $country)
     {
         $country->load(['riskScore', 'weatherData', 'economicData', 'currencyData', 'news' => fn($q) => $q->latest()->limit(5), 'ports']);
+        $this->attachLiveData($country);
 
         $riskHistory = \App\Models\RiskHistory::where('country_id', $country->id)
             ->orderBy('calculated_at', 'asc')
@@ -133,6 +159,7 @@ class CountryController extends Controller
     public function dashboardData(Country $country)
     {
         $country->load(['riskScore', 'weatherData', 'economicData', 'currencyData', 'news' => fn($q) => $q->latest()->limit(3), 'ports']);
+        $this->attachLiveData($country);
 
         return response()->json([
             'country' => [

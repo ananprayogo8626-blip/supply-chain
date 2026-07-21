@@ -33,6 +33,23 @@ class ExchangeRateService
             return null;
         }
 
+        $cacheKey = "exchangerate_{$baseCurrency}";
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $result = $this->fetchRates($baseCurrency);
+
+        if ($result !== null) {
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $result, now()->addMinutes(30));
+        }
+
+        return $result;
+    }
+
+    protected function fetchRates(string $baseCurrency): ?array
+    {
         try {
             Log::info("ExchangeRateService: [Sync Started] Fetching exchange rates for base currency {$baseCurrency}");
 

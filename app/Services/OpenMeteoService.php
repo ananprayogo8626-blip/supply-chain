@@ -140,39 +140,6 @@ class OpenMeteoService
         return min(100, $score);
     }
 
-    /**
-     * Get coordinates (latitude, longitude) for a city using Open-Meteo Geocoding API.
-     * Returns ['latitude' => float, 'longitude' => float] or null on failure.
-     */
-    public function getCoordinates(string $city, string $countryCode): ?array
-    {
-        try {
-            $response = retry(2, function() use ($city, $countryCode) {
-                return Http::timeout(15)->get('https://geocoding-api.open-meteo.com/v1/search', [
-                    'name'    => $city,
-                    'country' => $countryCode,
-                    'count'   => 1,
-                ]);
-            }, 500);
-
-            if (!$response->successful()) {
-                return null;
-            }
-
-            $data = $response->json();
-            if (!isset($data['results'][0])) {
-                return null;
-            }
-            $result = $data['results'][0];
-            return [
-                'latitude'  => $result['latitude'] ?? null,
-                'longitude' => $result['longitude'] ?? null,
-            ];
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
     private function getFallbackWeather(float $latitude, float $longitude): array
     {
         $absLat = abs($latitude);

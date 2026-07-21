@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Log;
 
 class RiskScoreEngine
 {
+    public function __construct(protected LiveCountryDataService $liveDataService)
+    {
+    }
+
     /**
      * Calculate and save/update risk score for a country using 5 weighted risk factors.
      * sum of weights: Weather (25%), Economy (20%), Currency (15%), News (25%), Ports (15%).
@@ -131,24 +135,30 @@ class RiskScoreEngine
      */
     protected function calculateWeatherScore(Country $country): int
     {
-        $weather = WeatherData::where('country_id', $country->id)->first();
+        $weather = $this->liveDataService->getWeather($country);
+
+        if (!$weather) {
+            $dbWeather = WeatherData::where('country_id', $country->id)->first();
+            $weather = $dbWeather ? $dbWeather->only(['storm_risk', 'rainfall', 'wind_speed', 'temperature']) : null;
+        }
+
         if (!$weather) {
             return 30; // default cache fallback
         }
 
         // Storm Risk contribution (40%)
-        $stormScore = (int) ($weather->storm_risk ?? 0);
+        $stormScore = (int) ($weather['storm_risk'] ?? 0);
 
         // Heavy Rain contribution (20%)
-        $rainfall = (float) ($weather->rainfall ?? 0);
+        $rainfall = (float) ($weather['rainfall'] ?? 0);
         $rainScore = $rainfall > 10 ? 100 : ($rainfall > 5 ? 70 : ($rainfall > 2 ? 40 : 10));
 
         // Extreme Wind contribution (20%)
-        $wind = (float) ($weather->wind_speed ?? 0);
+        $wind = (float) ($weather['wind_speed'] ?? 0);
         $windScore = $wind > 15 ? 100 : ($wind > 10 ? 70 : ($wind > 5 ? 40 : 10));
 
         // Temperature contribution (20%)
-        $temp = (float) ($weather->temperature ?? 15);
+        $temp = (float) ($weather['temperature'] ?? 15);
         $tempScore = ($temp > 38 || $temp < -5) ? 100 : (($temp > 30 || $temp < 5) ? 60 : 10);
 
         return (int) round(
@@ -164,25 +174,31 @@ class RiskScoreEngine
      */
     protected function calculateEconomyScore(Country $country): int
     {
-        $economy = EconomicData::where('country_id', $country->id)->first();
+        $economy = $this->liveDataService->getEconomy($country);
+
+        if (!$economy) {
+            $dbEconomy = EconomicData::where('country_id', $country->id)->first();
+            $economy = $dbEconomy ? $dbEconomy->only(['gdp', 'inflation', 'exports', 'imports']) : null;
+        }
+
         if (!$economy) {
             return 30; // default cache fallback
         }
 
         // GDP Size contribution (20%)
-        $gdp = (float) ($economy->gdp ?? 0);
+        $gdp = (float) ($economy['gdp'] ?? 0);
         $gdpScore = $gdp < 1e10 ? 80 : ($gdp < 5e10 ? 50 : ($gdp < 2e11 ? 30 : 10));
 
         // Inflation deviation contribution (30%)
-        $inflation = (float) ($economy->inflation ?? 0);
+        $inflation = (float) ($economy['inflation'] ?? 0);
         $inflationScore = ($inflation > 15 || $inflation < -2) ? 100 : (($inflation > 8) ? 70 : (($inflation > 4) ? 40 : 10));
 
         // Export volume contribution (25%)
-        $exports = (float) ($economy->exports ?? 0);
+        $exports = (float) ($economy['exports'] ?? 0);
         $exportScore = $exports < 5e9 ? 80 : ($exports < 2e10 ? 50 : 15);
 
         // Import volume contribution (25%)
-        $imports = (float) ($economy->imports ?? 0);
+        $imports = (float) ($economy['imports'] ?? 0);
         $importScore = $imports < 5e9 ? 80 : ($imports < 2e10 ? 50 : 15);
 
         return (int) round(
@@ -198,17 +214,23 @@ class RiskScoreEngine
      */
     protected function calculateCurrencyScore(Country $country): int
     {
-        $currency = CurrencyData::where('country_id', $country->id)->first();
+        $dbCurrency = CurrencyData::where('country_id', $country->id)->first();
+        $currency = $this->liveDataService->getCurrency($country, $dbCurrency);
+
+        if (!$currency) {
+            $currency = $dbCurrency ? $dbCurrency->only(['exchange_rate', 'change_percentage']) : null;
+        }
+
         if (!$currency) {
             return 30; // default cache fallback
         }
 
         // Exchange Rate level contribution (40%)
-        $rate = (float) ($currency->exchange_rate ?? 1);
+        $rate = (float) ($currency['exchange_rate'] ?? 1);
         $rateScore = $rate > 10000 ? 80 : ($rate > 1000 ? 60 : ($rate > 100 ? 40 : ($rate > 5 ? 20 : 10)));
 
         // Volatility contribution (60%)
-        $volatility = abs((float) ($currency->change_percentage ?? 0));
+        $volatility = abs((float) ($currency['change_percentage'] ?? 0));
         $volatilityScore = $volatility > 8 ? 100 : ($volatility > 4 ? 70 : ($volatility > 2 ? 40 : 10));
 
         return (int) round(

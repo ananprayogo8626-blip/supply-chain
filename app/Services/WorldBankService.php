@@ -13,9 +13,18 @@ class WorldBankService
      */
     public function getIndicator($countryCode, $indicator)
     {
+        $cacheKey = "worldbank_{$countryCode}_{$indicator}";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHours(12), function () use ($countryCode, $indicator) {
+            return $this->fetchIndicator($countryCode, $indicator);
+        });
+    }
+
+    protected function fetchIndicator($countryCode, $indicator)
+    {
         try {
             \Illuminate\Support\Facades\Log::debug("WorldBankService: Fetching indicator {$indicator} for {$countryCode}");
-            
+
             $response = retry(2, function() use ($countryCode, $indicator) {
                 return Http::timeout(20)->get(
                     "{$this->baseUrl}/{$countryCode}/indicator/{$indicator}",
