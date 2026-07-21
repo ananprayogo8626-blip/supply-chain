@@ -36,7 +36,7 @@ jobs:
           npm run build
 
       - name: Sync Files via FTP
-        uses: SamKirland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
