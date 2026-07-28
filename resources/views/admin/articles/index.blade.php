@@ -6,13 +6,7 @@
                     <i data-lucide="file-text" class="text-amber-400 w-6 h-6"></i>
                     Kelola Artikel Analisis
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Buat, publikasikan, dan kelola artikel analisis risiko rantai pasok global.</p>
-            </div>
-            <div>
-                <a href="{{ route('articles.create') }}" class="sg-btn sg-btn-primary flex items-center gap-2">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    Tulis Artikel Baru
-                </a>
+                <p class="text-xs text-slate-400 mt-1">Publikasi dan kelola artikel analisis risiko rantai pasok global.</p>
             </div>
         </div>
     </x-slot>

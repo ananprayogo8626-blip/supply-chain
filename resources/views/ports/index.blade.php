@@ -12,10 +12,6 @@
             <i data-lucide="download" class="w-4 h-4"></i>
             Sync World Port API
         </a>
-        <a href="{{ route('ports.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            Add Port
-        </a>
     </x-crud-header>
 
     @if(session('success'))
