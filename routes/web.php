@@ -19,6 +19,7 @@ use App\Http\Controllers\ImportProgressController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ApiManagementController;
 use App\Http\Controllers\RiskIntelligenceController;
+use App\Http\Controllers\ArticleController;
 
 use App\Services\WorldBankService;
 
@@ -102,6 +103,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('users.toggle-status');
 
     Route::resource('users', UserController::class)
+        ->middleware('role:super_admin,admin');
+
+    Route::resource('articles', ArticleController::class)
         ->middleware('role:super_admin,admin');
 
     /*
@@ -302,4 +306,4 @@ Route::prefix('api')->group(function () {
     Route::get('/risk', [ApiController::class, 'risk']);
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

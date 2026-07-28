@@ -107,6 +107,11 @@
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Kelola User</span>
                 </a>
 
+                <a href="{{ route('articles.index') }}" class="sg-nav-link {{ request()->routeIs('articles.*') ? 'active' : '' }}" id="nav-articles" :title="sidebarCollapsed ? 'Articles' : ''">
+                    <i data-lucide="file-text"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Kelola Artikel</span>
+                </a>
+
                 <a href="{{ route('admin.api-management') }}" class="sg-nav-link {{ request()->routeIs('admin.api-management') ? 'active' : '' }}" id="nav-api-management" :title="sidebarCollapsed ? 'API Management' : ''">
                     <i data-lucide="cpu"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">API Management</span>

@@ -32,13 +32,14 @@ class RiskScoreEngine
             $newsVal     = $this->calculateNewsScore($country);
             $portVal     = $this->calculatePortScore($country);
 
-            // Compute total weighted score (Weighted Risk Model)
+            // Compute total weighted score (Weighted Risk Model per PDF specification)
+            // Core PDF factors: Weather (30%), Economy/Inflation (25%), News Sentiment (20%), Currency (15%), Port Gateway (10%)
             $totalScore = (int) round(
-                ($weatherVal  * 0.25) +
-                ($economyVal  * 0.20) +
+                ($weatherVal  * 0.30) +
+                ($economyVal  * 0.25) +
                 ($currencyVal * 0.15) +
-                ($newsVal     * 0.25) +
-                ($portVal     * 0.15)
+                ($newsVal     * 0.20) +
+                ($portVal     * 0.10)
             );
 
             // Risk Level classification:
