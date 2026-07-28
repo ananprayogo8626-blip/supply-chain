@@ -25,6 +25,10 @@ jobs:
       - name: Install Composer Dependencies
         run: composer install --prefer-dist --no-dev --no-interaction --optimize-autoloader
 
+      - name: Compress Vendor Directory
+        run: |
+          zip -q -r vendor.zip vendor/
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -54,3 +58,14 @@ jobs:
             storage/framework/cache/*
             storage/framework/sessions/*
             storage/framework/views/*
+            vendor/**
+
+      - name: Extract Vendor Zip on Server
+        run: |
+          SITE_URL="${{ secrets.SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            echo "SITE_URL secret is not set. Skipping curl trigger. You can unzip vendor.zip manually via cPanel or set SITE_URL secret."
+          else
+            echo "Triggering extraction on server: https://${SITE_URL}/extract_vendor.php"
+            curl -s -k "https://${SITE_URL}/extract_vendor.php?key=anan_supply_chain_secret_key_2026" || true
+          fi
