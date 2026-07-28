@@ -192,7 +192,7 @@
                                         <i data-lucide="anchor" class="w-8 h-8"></i>
                                     </div>
                                     <h3>No Ports Found</h3>
-                                    <p>Import ports from World Port Index, or add records manually.</p>
+                                    <p>Sync ports from World Port Index to monitor global maritime hubs.</p>
                                     <a href="{{ route('ports.import') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
                                         <i data-lucide="download" class="w-4 h-4"></i>
                                         Import Now

@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             CountrySeeder::class,
             SentimentSeeder::class,
+            PortSeeder::class,
+            NewsSeeder::class,
             WatchlistSeeder::class,
             ArticleSeeder::class,
         ]);
