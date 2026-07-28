@@ -4,55 +4,30 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Country;
+use App\Services\CountryService;
+use Illuminate\Support\Facades\Log;
 
 class CountrySeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Run the database seeds strictly via REST Countries API.
      */
     public function run(): void
     {
-        $json = file_get_contents(database_path('data/countries.json'));
+        $this->command->info('Fetching live country data from REST Countries API...');
 
-        $countries = json_decode($json, true);
+        try {
+            $countryService = app(CountryService::class);
+            $result = $countryService->syncCountries();
 
-        $processedCount = 0;
-        $errorCount = 0;
-
-        foreach ($countries as $country) {
-            try {
-                Country::updateOrCreate(
-                    [
-                        'country_code' => $country['country_code']
-                    ],
-                    [
-                        'iso3'         => $country['iso3'] ?? null,
-                        'country_name' => $country['country_name'],
-                        'capital'      => $country['capital'],
-                        'region'       => $country['region'],
-                        'subregion'    => $country['subregion'] ?? null,
-                        'currency'     => $country['currency'],
-                        'language'     => $country['language'],
-                        'population'   => $country['population'],
-                        'flag'         => $country['flag'],
-                        'latitude'     => $country['latitude'] ?? null,
-                        'longitude'    => $country['longitude'] ?? null,
-                        'timezone'     => $country['timezone'] ?? null,
-                    ]
-                );
-
-                $processedCount++;
-
-            } catch (\Throwable $e) {
-                $errorCount++;
-                $this->command->error("Error processing country {$country['country_code']}: " . $e->getMessage());
-                continue;
-            }
+            $this->command->info('===================================');
+            $this->command->info("Source: REST Countries API");
+            $this->command->info("Countries Created: {$result['created']}");
+            $this->command->info("Countries Updated: {$result['updated']}");
+            $this->command->info('===================================');
+        } catch (\Throwable $e) {
+            $this->command->error("Error fetching data from REST Countries API: " . $e->getMessage());
+            Log::error("CountrySeeder failed: " . $e->getMessage());
         }
-
-        $this->command->info('===================================');
-        $this->command->info("Countries Imported: {$processedCount}");
-        $this->command->info("Errors: {$errorCount}");
-        $this->command->info('===================================');
     }
 }
