@@ -11,17 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Drop tables/views if they already exist to avoid errors
-        $this->down();
+        // Safely attempt creating compatibility views if sentiment_words table exists
+        if (Schema::hasTable('sentiment_words')) {
+            try {
+                DB::statement("DROP VIEW IF EXISTS positive_words");
+                DB::statement("CREATE VIEW positive_words AS SELECT id, word, created_at, updated_at FROM sentiment_words WHERE type = 'positive'");
+            } catch (\Throwable $e) {
+                // Ignore if positive_words is already a real table
+            }
 
-        // Create positive_words view
-        DB::statement("CREATE VIEW positive_words AS SELECT id, word, created_at, updated_at FROM sentiment_words WHERE type = 'positive'");
+            try {
+                DB::statement("DROP VIEW IF EXISTS negative_words");
+                DB::statement("CREATE VIEW negative_words AS SELECT id, word, created_at, updated_at FROM sentiment_words WHERE type = 'negative'");
+            } catch (\Throwable $e) {
+                // Ignore if negative_words is already a real table
+            }
+        }
 
-        // Create negative_words view
-        DB::statement("CREATE VIEW negative_words AS SELECT id, word, created_at, updated_at FROM sentiment_words WHERE type = 'negative'");
-
-        // Create news_cache view
-        DB::statement("CREATE VIEW news_cache AS SELECT * FROM news");
+        if (Schema::hasTable('news')) {
+            try {
+                DB::statement("DROP VIEW IF EXISTS news_cache");
+                DB::statement("CREATE VIEW news_cache AS SELECT * FROM news");
+            } catch (\Throwable $e) {
+                // Ignore if view creation fails
+            }
+        }
     }
 
     /**
@@ -29,8 +43,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("DROP VIEW IF EXISTS positive_words");
-        DB::statement("DROP VIEW IF EXISTS negative_words");
-        DB::statement("DROP VIEW IF EXISTS news_cache");
+        try {
+            DB::statement("DROP VIEW IF EXISTS positive_words");
+            DB::statement("DROP VIEW IF EXISTS negative_words");
+            DB::statement("DROP VIEW IF EXISTS news_cache");
+        } catch (\Throwable $e) {}
     }
 };
