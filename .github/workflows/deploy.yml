@@ -13,6 +13,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies & Build assets
+        run: |
+          npm ci
+          npm run build
+
       - name: Sync files via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -26,3 +36,4 @@ jobs:
             **/node_modules/**
             **/tests/**
             **/.env
+
