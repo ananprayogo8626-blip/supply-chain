@@ -57,7 +57,7 @@
 </div>
 
 <!-- 4 Clean Minimal KPI Stat Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div class="min-stat-grid">
     <!-- 1. Total Countries -->
     <a href="{{ route('countries.index') }}" class="min-card group" title="View Countries Directory">
         <div class="flex items-center justify-between mb-2">
