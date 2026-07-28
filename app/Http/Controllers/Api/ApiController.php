@@ -209,12 +209,15 @@ class ApiController extends Controller
      */
     public function dashboard()
     {
+        @set_time_limit(120);
+
         try {
-            $totalCountries = Country::count();
-            $totalPorts = Port::count();
-            $totalArticles = News::count();
-            $totalWatchlists = \App\Models\Watchlist::count();
-            $highRiskEntities = RiskScore::where('total_score', '>=', 51)->count();
+            $cachedData = \Illuminate\Support\Facades\Cache::remember('api_dashboard_aggregated', 60, function() {
+                $totalCountries = Country::count();
+                $totalPorts = Port::count();
+                $totalArticles = News::count();
+                $totalWatchlists = \App\Models\Watchlist::count();
+                $highRiskEntities = RiskScore::where('total_score', '>=', 51)->count();
 
             $riskScores = RiskScore::all();
             $low      = $riskScores->filter(fn ($r) => $r->total_score < 26)->count();
@@ -398,59 +401,67 @@ class ApiController extends Controller
                 'risk_level' => $w->country->riskScore->risk_level ?? 'Low'
             ])->values();
 
-            // Live API Status checks for all external services
-            $apiStatus = [
-                ['name' => 'Open-Meteo API (Weather)', 'status' => 'ACTIVE', 'error' => null],
-                ['name' => 'World Bank API (Economy)', 'status' => 'ACTIVE', 'error' => null],
-                ['name' => 'REST Countries API (Profil)', 'status' => 'ACTIVE', 'error' => null],
-                ['name' => 'ExchangeRate API (Currency)', 'status' => 'ACTIVE', 'error' => null],
-                ['name' => 'World Port Index (Ports)', 'status' => 'ACTIVE', 'error' => null],
+            // Live API Status checks (hanya domain yang masih punya sync log — weather/economy/currency
+            // sekarang real-time murni, tanpa job sync yang bisa gagal/dicatat)
+            $apiStatus = [];
+            $stages = [
+                'news' => 'GNews API',
             ];
+            foreach ($stages as $stage => $name) {
+                $recentFailure = \App\Models\SyncLog::where('stage', $stage)
+                    ->where('failed_at', '>=', now()->subDay())
+                    ->latest('failed_at')
+                    ->first();
+                if ($recentFailure) {
+                    $apiStatus[] = [
+                        'name' => $name,
+                        'status' => 'OFFLINE',
+                        'error' => $recentFailure->error_message
+                    ];
+                } else {
+                    $apiStatus[] = [
+                        'name' => $name,
+                        'status' => 'ACTIVE',
+                        'error' => null
+                    ];
+                }
+            }
 
-            $recentNewsFailure = \App\Models\SyncLog::where('stage', 'news')
-                ->where('failed_at', '>=', now()->subDay())
-                ->latest('failed_at')
-                ->first();
+            return $this->cleanArray([
+                'stats' => [
+                    'totalCountries'   => $totalCountries,
+                    'totalPorts'       => $totalPorts,
+                    'totalArticles'    => $totalArticles,
+                    'totalWatchlists'  => $totalWatchlists,
+                    'highRiskEntities' => $highRiskEntities,
+                    'totalWeather'     => 0,
+                    'totalEconomy'     => 0,
+                    'totalCurrency'    => 0,
+                    'criticalRisk'     => $critical,
+                    'highRisk'         => $high,
+                    'mediumRisk'       => $medium,
+                    'lowRisk'          => $low,
+                    'lastSyncStr'      => $lastSyncStr,
+                ],
+                'riskProfile'          => $riskProfile,
+                'newsSentiment'        => $newsSentiment,
+                'topRisks'             => $topRisks->toArray(),
+                'riskTrend'            => $riskTrend->toArray(),
+                'topSafe'              => $topSafe->toArray(),
+                'latestNewsList'       => $latestNewsList->toArray(),
+                'activePorts'          => $activePorts->toArray(),
+                'recentWatchlist'      => $recentWatchlist->toArray(),
+                'criticalWarnings'     => $criticalWarnings->toArray(),
+                'alertCount'           => $alertCount,
+                'apiStatus'            => $apiStatus,
+                'generatedAt'          => now()->toIso8601String(),
+            ]);
+        });
 
-            $apiStatus[] = [
-                'name'   => 'GNews API (News Intelligence)',
-                'status' => $recentNewsFailure ? 'OFFLINE' : 'ACTIVE',
-                'error'  => $recentNewsFailure ? $recentNewsFailure->error_message : null,
-            ];
-
-            // Clean all array data to prevent UTF-8 encoding errors
-            return response()->json([
-                'status' => 'success',
-                'data'   => $this->cleanArray([
-                    'stats' => [
-                        'totalCountries'   => $totalCountries,
-                        'totalPorts'       => $totalPorts,
-                        'totalArticles'    => $totalArticles,
-                        'totalWatchlists'  => $totalWatchlists,
-                        'highRiskEntities' => $highRiskEntities,
-                        'totalWeather'     => $totalCountries,
-                        'totalEconomy'     => $totalCountries,
-                        'totalCurrency'    => $totalCountries,
-                        'criticalRisk'     => $critical,
-                        'highRisk'         => $high,
-                        'mediumRisk'       => $medium,
-                        'lowRisk'          => $low,
-                        'lastSyncStr'      => $lastSyncStr,
-                    ],
-                    'riskProfile'          => $riskProfile,
-                    'newsSentiment'        => $newsSentiment,
-                    'topRisks'             => $topRisks->toArray(),
-                    'riskTrend'            => $riskTrend->toArray(),
-                    'topSafe'              => $topSafe->toArray(),
-                    'latestNewsList'       => $latestNewsList->toArray(),
-                    'activePorts'          => $activePorts->toArray(),
-                    'recentWatchlist'      => $recentWatchlist->toArray(),
-                    'criticalWarnings'     => $criticalWarnings->toArray(),
-                    'alertCount'           => $alertCount,
-                    'apiStatus'            => $apiStatus,
-                    'generatedAt'          => now()->toIso8601String(),
-                ]),
-            ], 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return response()->json([
+            'status' => 'success',
+            'data'   => $cachedData,
+        ], 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => 'error',

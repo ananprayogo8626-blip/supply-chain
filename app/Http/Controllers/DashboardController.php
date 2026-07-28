@@ -81,4 +81,37 @@ class DashboardController extends Controller
         $countries = Country::orderBy('country_name')->get();
         return view('dashboard.global', compact('countries'));
     }
+
+    public function minimalist()
+    {
+        $criticalRisk = RiskScore::where('risk_level', 'Critical')->count();
+        $highRisk     = RiskScore::where('risk_level', 'High')->count();
+        $mediumRisk   = RiskScore::where('risk_level', 'Medium')->count();
+        $lowRisk      = RiskScore::where('risk_level', 'Low')->count();
+
+        if (($criticalRisk + $highRisk + $mediumRisk + $lowRisk) === 0) {
+            $criticalRisk = RiskScore::where('total_score', '>=', 76)->count();
+            $highRisk     = RiskScore::whereBetween('total_score', [51, 75])->count();
+            $mediumRisk   = RiskScore::whereBetween('total_score', [26, 50])->count();
+            $lowRisk      = RiskScore::where('total_score', '<=', 25)->count();
+        }
+
+        $data = [
+            'totalCountries'       => Country::count(),
+            'totalPorts'           => Port::count(),
+            'totalNews'            => News::count(),
+            'totalWatchlists'      => Watchlist::count(),
+            'criticalRiskCount'    => $criticalRisk,
+            'highRiskCount'        => $highRisk,
+            'mediumRiskCount'      => $mediumRisk,
+            'lowRiskCount'         => $lowRisk,
+            'averageRisk'          => round(RiskScore::avg('total_score') ?? 0, 1),
+            'topRiskScores'        => RiskScore::with('country')->orderBy('total_score', 'desc')->take(6)->get(),
+            'latestNews'           => News::with('country')->latest('published_at')->take(5)->get(),
+            'watchlists'           => Watchlist::with('country')->latest()->take(5)->get(),
+            'lastSyncTime'         => optional(SyncLog::orderBy('created_at','desc')->first())->created_at ? Carbon::parse(SyncLog::orderBy('created_at','desc')->first()->created_at)->diffForHumans() : '—',
+        ];
+
+        return view('dashboard.minimalist', $data);
+    }
 }

@@ -8,6 +8,7 @@
     <meta name="description" content="Real-time supply chain risk monitoring platform powered by live global data APIs">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{{ asset('css/supplyguard.css') }}?v={{ time() }}">
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v={{ time() }}">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -55,6 +56,11 @@
                 <a href="{{ route('dashboard') }}" class="sg-nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" id="nav-dashboard" :title="sidebarCollapsed ? 'Dashboard' : ''">
                     <i data-lucide="layout-dashboard"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Dashboard</span>
+                </a>
+
+                <a href="{{ route('dashboard.minimalist') }}" class="sg-nav-link {{ request()->routeIs('dashboard.minimalist') ? 'active' : '' }}" id="nav-dashboard-minimalist" :title="sidebarCollapsed ? 'Minimalist' : ''">
+                    <i data-lucide="layout-grid"></i>
+                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Minimalist View</span>
                 </a>
 
                 <a href="{{ route('watchlists.index') }}" class="sg-nav-link {{ request()->routeIs('watchlists.*') ? 'active' : '' }}" id="nav-watchlist" :title="sidebarCollapsed ? 'Watchlist' : ''">
@@ -105,11 +111,6 @@
                 <a href="{{ route('users.index') }}" class="sg-nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" id="nav-users" :title="sidebarCollapsed ? 'Users' : ''">
                     <i data-lucide="users"></i>
                     <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Kelola User</span>
-                </a>
-
-                <a href="{{ route('articles.index') }}" class="sg-nav-link {{ request()->routeIs('articles.*') ? 'active' : '' }}" id="nav-articles" :title="sidebarCollapsed ? 'Articles' : ''">
-                    <i data-lucide="file-text"></i>
-                    <span class="sg-nav-link-label" x-show="!sidebarCollapsed">Kelola Artikel</span>
                 </a>
 
                 <a href="{{ route('admin.api-management') }}" class="sg-nav-link {{ request()->routeIs('admin.api-management') ? 'active' : '' }}" id="nav-api-management" :title="sidebarCollapsed ? 'API Management' : ''">
@@ -186,7 +187,12 @@
                 </div>
 
                 <div class="sg-header-right">
-                    {{-- Sync Action Button --}}
+                    {{-- Live Running Clock Widget --}}
+                    <div class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[rgba(0,210,255,0.18)] bg-[rgba(9,21,39,0.7)] backdrop-blur-md shadow-sm" title="Real-Time System Clock">
+                        <i data-lucide="clock" style="width:14px;height:14px;color:var(--accent-cyan)"></i>
+                        <span id="global-live-clock" style="font-family:'Courier New', monospace; font-size:12px; font-weight:700; color:#F8FAFC; letter-spacing:0.05em">00:00:00</span>
+                    </div>
+
                     {{-- Notification Button --}}
                     <div class="sg-profile-container" x-data="{ open: false }" style="position:relative">
                         <button id="notif-btn" class="sg-notif-btn" @click="open = !open" title="Notifications">
@@ -282,6 +288,26 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize Lucide Icons
         lucide.createIcons();
+
+        // Live Ticking Clock (Updates Header Clock & Dashboard Subheader every 1 sec)
+        function updateGlobalClock() {
+            const clockEl = document.getElementById('global-live-clock');
+            const dashDateEl = document.getElementById('dashboard-date');
+            const now = new Date();
+            
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+            
+            if (dashDateEl) {
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                const dateStr = now.toLocaleDateString('en-US', options);
+                const timeStr = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                dashDateEl.innerHTML = dateStr + ' &bull; <span class="text-cyan-400 font-mono font-bold">' + timeStr + '</span> &bull; Live Security Grid';
+            }
+        }
+        updateGlobalClock();
+        setInterval(updateGlobalClock, 1000);
 
         const overlay = document.getElementById('global-loading-overlay');
         const progress = document.getElementById('global-loading-progress');

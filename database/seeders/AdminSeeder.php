@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -13,37 +14,30 @@ class AdminSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Super Admin Default
-        User::updateOrCreate(
-            ['email' => 'anan19@gmail.com'],
-            [
-                'name'              => 'Super Administrator',
-                'password'          => Hash::make('12345'),
-                'role'              => 'super_admin',
+        // Cek apakah Super Admin sudah ada
+        $existingAdmin = User::where('email', 'anan19@gmail.com')->first();
+        
+        if (!$existingAdmin) {
+            // Buat akun Super Admin default
+            User::create([
+                'name' => 'Super Administrator',
+                'email' => 'anan19@gmail.com',
+                'password' => Hash::make('12345'),
+                'role' => 'super_admin',
                 'email_verified_at' => now(),
-            ]
-        );
-
-        // 2. Admin Default
-        User::updateOrCreate(
-            ['email' => 'admin@gmail.com'],
-            [
-                'name'              => 'Risk Operations Manager',
-                'password'          => Hash::make('12345'),
-                'role'              => 'admin',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        // 3. Regular Viewer User Default
-        User::updateOrCreate(
-            ['email' => 'user@gmail.com'],
-            [
-                'name'              => 'Supply Chain Analyst',
-                'password'          => Hash::make('12345'),
-                'role'              => 'viewer',
-                'email_verified_at' => now(),
-            ]
-        );
+            ]);
+            
+            $this->command->info('✓ Akun Super Admin berhasil dibuat');
+            $this->command->info('  Email: anan19@gmail.com');
+            $this->command->info('  Password: 12345');
+        } else {
+            // Update role jika user sudah ada tapi belum super_admin
+            if ($existingAdmin->role !== 'super_admin') {
+                $existingAdmin->update(['role' => 'super_admin']);
+                $this->command->info('✓ Role user anan19@gmail.com diperbarui menjadi Super Admin');
+            } else {
+                $this->command->info('✓ Akun Super Admin sudah ada');
+            }
+        }
     }
 }

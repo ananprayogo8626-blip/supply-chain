@@ -46,30 +46,20 @@ class SentimentService
         $text = preg_replace('/[^\w\s]/', '', $text);
         $words = explode(' ', $text);
 
-        // Load words from positive_words & negative_words database tables per PDF specification
+        // Try to load words from database if table exists
         $posDict = $this->positiveWords;
         $negDict = $this->negativeWords;
 
         try {
-            if (Schema::hasTable('positive_words')) {
-                $dbPosWords = DB::table('positive_words')->pluck('word')->toArray();
-                if (!empty($dbPosWords)) {
-                    $posDict = $dbPosWords;
-                }
-            }
-            if (Schema::hasTable('negative_words')) {
-                $dbNegWords = DB::table('negative_words')->pluck('word')->toArray();
-                if (!empty($dbNegWords)) {
-                    $negDict = $dbNegWords;
-                }
-            }
-
-            // Fallback for unified sentiment_words table if primary tables are empty
-            if (count($posDict) === count($this->positiveWords) && Schema::hasTable('sentiment_words')) {
+            if (Schema::hasTable('sentiment_words')) {
                 $posWords = DB::table('sentiment_words')->where('type', 'positive')->pluck('word')->toArray();
                 $negWords = DB::table('sentiment_words')->where('type', 'negative')->pluck('word')->toArray();
-                if (count($posWords) > 0) $posDict = $posWords;
-                if (count($negWords) > 0) $negDict = $negWords;
+                if (count($posWords) > 0) {
+                    $posDict = $posWords;
+                }
+                if (count($negWords) > 0) {
+                    $negDict = $negWords;
+                }
             }
         } catch (\Exception $e) {
             // Silence DB exception and use fallback

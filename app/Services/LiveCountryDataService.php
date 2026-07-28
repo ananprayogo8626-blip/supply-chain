@@ -49,41 +49,51 @@ class LiveCountryDataService
             return null;
         }
 
-        return $this->weatherService->getWeather((float) $country->latitude, (float) $country->longitude);
+        $cacheKey = "weather_live_{$country->id}";
+        return Cache::remember($cacheKey, 1800, function() use ($country) {
+            return $this->weatherService->getWeather((float) $country->latitude, (float) $country->longitude);
+        });
     }
 
     public function getEconomy(Country $country): ?array
     {
-        try {
-            $gdp = $this->worldBankService->getIndicator($country->country_code, 'NY.GDP.MKTP.CD');
-
-            if (!$gdp || $gdp['value'] === null) {
-                return null;
-            }
-
-            $growth = $this->worldBankService->getIndicator($country->country_code, 'NY.GDP.MKTP.KD.ZG');
-            $inflation = $this->worldBankService->getIndicator($country->country_code, 'FP.CPI.TOTL.ZG');
-            $exports = $this->worldBankService->getIndicator($country->country_code, 'NE.EXP.GNFS.CD');
-            $imports = $this->worldBankService->getIndicator($country->country_code, 'NE.IMP.GNFS.CD');
-            $population = $this->worldBankService->getIndicator($country->country_code, 'SP.POP.TOTL');
-
-            $exportsVal = $exports['value'] ?? 0;
-            $importsVal = $imports['value'] ?? 0;
-
-            return [
-                'gdp' => $gdp['value'],
-                'gdp_growth' => $growth['value'] ?? null,
-                'inflation' => $inflation['value'] ?? null,
-                'exports' => $exportsVal,
-                'imports' => $importsVal,
-                'trade_balance' => $exportsVal - $importsVal,
-                'population' => $population['value'] ?? $country->population,
-                'data_year' => $gdp['year'],
-            ];
-        } catch (\Throwable $e) {
-            Log::error("LiveCountryDataService: getEconomy failed for {$country->country_code}: " . $e->getMessage());
+        if (!$country->country_code) {
             return null;
         }
+
+        $cacheKey = "economy_live_{$country->country_code}";
+        return Cache::remember($cacheKey, 3600, function() use ($country) {
+            try {
+                $gdp = $this->worldBankService->getIndicator($country->country_code, 'NY.GDP.MKTP.CD');
+
+                if (!$gdp || $gdp['value'] === null) {
+                    return null;
+                }
+
+                $growth = $this->worldBankService->getIndicator($country->country_code, 'NY.GDP.MKTP.KD.ZG');
+                $inflation = $this->worldBankService->getIndicator($country->country_code, 'FP.CPI.TOTL.ZG');
+                $exports = $this->worldBankService->getIndicator($country->country_code, 'NE.EXP.GNFS.CD');
+                $imports = $this->worldBankService->getIndicator($country->country_code, 'NE.IMP.GNFS.CD');
+                $population = $this->worldBankService->getIndicator($country->country_code, 'SP.POP.TOTL');
+
+                $exportsVal = $exports['value'] ?? 0;
+                $importsVal = $imports['value'] ?? 0;
+
+                return [
+                    'gdp' => $gdp['value'],
+                    'gdp_growth' => $growth['value'] ?? null,
+                    'inflation' => $inflation['value'] ?? null,
+                    'exports' => $exportsVal,
+                    'imports' => $importsVal,
+                    'trade_balance' => $exportsVal - $importsVal,
+                    'population' => $population['value'] ?? $country->population,
+                    'data_year' => $gdp['year'],
+                ];
+            } catch (\Throwable $e) {
+                Log::error("LiveCountryDataService: getEconomy failed for {$country->country_code}: " . $e->getMessage());
+                return null;
+            }
+        });
     }
 
     /**
@@ -101,16 +111,20 @@ class LiveCountryDataService
     public function getCurrency(Country $country): ?array
     {
         $currencyCodes = array_map('trim', explode(',', $country->currency ?? ''));
-        $currencyCode = $currencyCodes[0] ?? null;
+        $currencyCode = strtoupper($currencyCodes[0] ?? '');
 
-        if (!$currencyCode) {
-            return null;
+        // Currency mapping & fallback for special territory ISO codes
+        if ($currencyCode === 'CKD') $currencyCode = 'NZD'; // Cook Islands Dollar pegged to NZD
+        if ($currencyCode === 'CUC') $currencyCode = 'CUP'; // Cuban Convertible Peso fallback
+        if (empty($currencyCode) || in_array($currencyCode, ['N/A', 'NONE', 'EMPTY'])) {
+            $currencyCode = 'USD'; // Default fallback for territories without central bank ISO codes
         }
 
         $rate = $this->exchangeRateService->getRate($currencyCode, 'USD');
 
+        // Fallback for non-traded currencies
         if ($rate === null) {
-            return null;
+            $rate = 1.0;
         }
 
         $changePercentage = 0.0;
@@ -128,7 +142,7 @@ class LiveCountryDataService
             'currency_name' => $currencyCode,
             'base_currency' => 'USD',
             'exchange_rate' => $rate,
-            'change_percentage' => $changePercentage,
+            'change_percentage' => round($changePercentage, 2),
             'last_updated' => now(),
         ];
     }

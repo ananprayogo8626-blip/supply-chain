@@ -1,9 +1,9 @@
-// public/js/dashboard.js
-/* Dashboard UI Helpers - Dark Enterprise Theme */
+// public/js/dashboard.js — Ocean & Terracotta Coastal Theme Dashboard Logic
 
-// Animated counter
+// Animated counter utility
 function animateNumber(el, target) {
-  const duration = 1200;
+  if (!el) return;
+  const duration = 1000;
   const start = 0;
   const startTime = performance.now();
   const step = (now) => {
@@ -16,24 +16,11 @@ function animateNumber(el, target) {
   requestAnimationFrame(step);
 }
 
-// Sparkline (simple bar)
-function drawSparkline(canvasId, data) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width = 60;
-  const h = canvas.height = 12;
-  const max = Math.max(...data);
-  ctx.clearRect(0, 0, w, h);
-  data.forEach((v, i) => {
-    const barHeight = (v / max) * h;
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan');
-    ctx.fillRect(i * 4, h - barHeight, 2, barHeight);
-  });
-}
-
-// Leaflet map initialization with dark tiles and colored markers
+// Leaflet map initialization with dark CARTO tiles and custom coastal pins
 function initLeafletMap(riskData = [], portData = []) {
+  const container = document.getElementById('map-dashboard');
+  if (!container || window.mapInstance) return;
+
   const map = L.map('map-dashboard', {
     zoomControl: true,
     fullscreenControl: true,
@@ -41,225 +28,246 @@ function initLeafletMap(riskData = [], portData = []) {
   }).setView([20, 0], 2);
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/" target="_blank">CARTO</a>',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/" target="_blank">CARTO</a>',
     maxZoom: 18,
+    subdomains: 'abcd'
   }).addTo(map);
 
   const riskColors = {
     Critical: '#EF4444',
     High: '#F97316',
-    Medium: '#EAB308',
-    Low: '#10B981'
+    Medium: '#F59E0B',
+    Low: '#00D2FF'
   };
 
   riskData.forEach(r => {
     if (!r.lat || !r.lng) return;
+    const color = riskColors[r.riskLevel] || '#00D2FF';
     const icon = L.divIcon({
-      className: 'risk-marker',
-      html: `<div style="background:${riskColors[r.riskLevel] || '#666'};width:16px;height:16px;border-radius:50%;border:2px solid #fff;"></div>`,
-      iconSize: [20, 20]
+      className: 'custom-risk-pin',
+      html: `<div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid #ffffff;box-shadow:0 0 14px ${color};"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
     });
+
     L.marker([r.lat, r.lng], { icon }).addTo(map).bindPopup(`
-      <div style="font-family: Inter, sans-serif; color:#f8fafc;">
-        <div style="font-size:13px;font-weight:bold;color:${riskColors[r.riskLevel]};margin-bottom:5px;">${r.country_name}</div>
-        <div style="font-size:10px;color:#94a3b8;">Risk Score: <strong>${r.total_score}</strong></div>
-        <div style="font-size:10px;color:#94a3b8;">Weather: <strong>${r.weather || 'N/A'}</strong></div>
-        <div style="font-size:10px;color:#94a3b8;">GDP: <strong>${r.gdp || 'N/A'}</strong></div>
-        <div style="font-size:10px;color:#94a3b8;">Currency: <strong>${r.currency || 'N/A'}</strong></div>
-        <div style="font-size:10px;color:#94a3b8;">Main Port: <strong>${r.main_port || 'N/A'}</strong></div>
+      <div style="font-family: Inter, sans-serif; color:#f8fafc; padding:4px;">
+        <div style="font-size:13px;font-weight:700;color:${color};margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+          ${r.flag ? `<img src="${r.flag}" style="width:18px;height:12px;object-fit:cover;border-radius:2px;">` : ''}
+          ${r.country_name}
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:2px;">Risk Index Score: <strong style="color:#fff;font-family:Outfit,sans-serif;font-size:13px;">${r.total_score || r.score || 'N/A'}</strong></div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:2px;">Risk Category: <strong style="color:${color};">${r.riskLevel}</strong></div>
+        <div style="font-size:10px;color:#64748B;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
+          Currency: ${r.currency || 'N/A'} &bull; Port: ${r.main_port || 'N/A'}
+        </div>
       </div>`);
   });
 
   const portIcon = L.divIcon({
-    className: '',
-    html: '<div style="font-size:16px; text-shadow:0 0 4px rgba(56,189,248,0.6);">⚓</div>',
+    className: 'custom-port-pin',
+    html: '<div style="font-size:15px; text-shadow:0 0 10px rgba(0,210,255,0.9);">⚓</div>',
     iconSize: [20, 20],
-    iconAnchor: [10, 20],
-    popupAnchor: [0, -20]
+    iconAnchor: [10, 20]
   });
 
   portData.forEach(p => {
     if (!p.lat || !p.lng) return;
     L.marker([p.lat, p.lng], { icon: portIcon }).addTo(map).bindPopup(`
-      <div style="font-family: Inter, sans-serif; width:180px; color:#f8fafc;">
-        <div style="font-size:13px;font-weight:bold;color:#38bdf8;margin-bottom:5px;">⚓ ${p.port_name || 'N/A'}</div>
-        <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">City: <strong>${p.city || 'N/A'}</strong></div>
-        <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Country: <strong>${p.country_name || 'N/A'}</strong></div>
-        <div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">Code: <strong>${p.type || 'N/A'}</strong></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
-          <span style="font-size:9px;font-weight:bold;background:rgba(56,189,248,0.1);color:#38bdf8;border-radius:4px;padding:1.5px 5px;">${p.type || 'Hub'}</span>
-          <span style="font-size:9px;font-weight:bold;color:${p.status === 'Active' ? '#10B981' : '#EF4444'};">${p.status || 'Active'}</span>
+      <div style="font-family: Inter, sans-serif; width:180px; color:#f8fafc; padding:4px;">
+        <div style="font-size:13px;font-weight:bold;color:#00D2FF;margin-bottom:6px;">⚓ ${p.port_name || 'N/A'}</div>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">City: <strong style="color:#fff;">${p.city || 'N/A'}</strong></div>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Country: <strong style="color:#fff;">${p.country_name || 'N/A'}</strong></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
+          <span style="font-size:9px;font-weight:bold;background:rgba(0,210,255,0.15);color:#00D2FF;border-radius:4px;padding:2px 6px;">${p.type || 'Hub'}</span>
+          <span style="font-size:9px;font-weight:bold;color:${p.status === 'Active' ? '#00D2FF' : '#EF4444'};">${p.status || 'Active'}</span>
         </div>
       </div>`);
   });
 
-  window.mapInstance = map; // expose globally for dashboard.js checks
+  window.mapInstance = map;
 }
 
-// Chart.js default theme & builder
-function createChart(id, type, data, options = {}) {
-  const ctx = document.getElementById(id).getContext('2d');
-  const defaultOpts = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 1200, easing: 'easeOutQuart' },
-    plugins: { legend: { labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary') } } },
-    scales: {
-      x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary') } },
-      y: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary') } }
-    }
-  };
-  return new Chart(ctx, { type, data, options: Object.assign(defaultOpts, options) });
-}
+// Chart.js Plugin for Center Text Overlay in Doughnut Chart
+const doughnutCenterTextPlugin = {
+  id: 'doughnutCenterText',
+  beforeDraw(chart) {
+    if (chart.config.type !== 'doughnut') return;
+    const { ctx, chartArea: { top, bottom, left, right, width, height } } = chart;
+    ctx.save();
+    
+    // Draw Center Score / Text
+    const centerX = (left + right) / 2;
+    const centerY = (top + bottom) / 2;
 
-// Render activity timeline from API log array
-function renderTimeline(logArray) {
-  const ul = document.getElementById('activity-timeline');
-  if (!ul) return;
-  ul.innerHTML = '';
-  logArray.forEach(item => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span>${new Date(item.timestamp).toLocaleString()}</span> - ${item.message}`;
-    ul.appendChild(li);
-  });
-}
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Primary Text
+    ctx.font = '700 22px Outfit, sans-serif';
+    ctx.fillStyle = '#F8FAFC';
+    ctx.fillText('100%', centerX, centerY - 8);
 
-// Live clock in header
-function startLiveClock() {
-  const el = document.getElementById('live-clock');
-  if (!el) return;
-  setInterval(() => {
-    const now = new Date();
-    el.textContent = now.toLocaleTimeString();
-  }, 1000);
-}
+    // Subtitle
+    ctx.font = '500 10px Inter, sans-serif';
+    ctx.fillStyle = '#00D2FF';
+    ctx.fillText('Global Risk', centerX, centerY + 12);
+    
+    ctx.restore();
+  }
+};
 
-// Table search utility
-function initTableSearch(tableId, searchInputId) {
-  const table = document.getElementById(tableId);
-  const input = document.getElementById(searchInputId);
-  if (!table || !input) return;
-  const rows = Array.from(table.tBodies[0].rows);
-  input.addEventListener('input', () => {
-    const term = input.value.toLowerCase();
-    rows.forEach(row => {
-      const text = row.innerText.toLowerCase();
-      row.style.display = text.includes(term) ? '' : 'none';
-    });
-  });
-}
-
-// Pagination helper (simple client‑side)
-function paginateTable(tableId, perPage = 10) {
-  const table = document.getElementById(tableId);
-  if (!table) return;
-  const tbody = table.tBodies[0];
-  const rows = Array.from(tbody.rows);
-  const totalPages = Math.ceil(rows.length / perPage);
-  let current = 1;
-  const renderPage = (page) => {
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    rows.forEach((row, i) => {
-      row.style.display = (i >= start && i < end) ? '' : 'none';
-    });
-  };
-  renderPage(current);
-  // simple prev/next controls could be inserted here if needed
-}
-
-// Initialize when DOM loaded
-document.addEventListener('DOMContentLoaded', () => {
-  startLiveClock();
-  // other init actions (chart building etc.) are called from loadDashboard in dashboard.blade.php
-});
-
-// --- Rendering Helper Functions ---
-
+// Chart.js Risk Distribution (Doughnut)
 let riskDistributionChartInst = null;
 function drawRiskDistributionChart(riskProfile) {
   if (!riskProfile || !document.getElementById('riskChart')) return;
   const ctx = document.getElementById('riskChart').getContext('2d');
-  const data = [riskProfile.critical, riskProfile.high, riskProfile.medium, riskProfile.low];
-  
+  const data = [riskProfile.critical || 0, riskProfile.high || 0, riskProfile.medium || 0, riskProfile.low || 0];
+
   if (riskDistributionChartInst) {
     riskDistributionChartInst.data.datasets[0].data = data;
     riskDistributionChartInst.update();
     return;
   }
-  
+
+  // Coastal Theme Palette: Terracotta Red, Flame Orange, Sand Amber, Ocean Cyan
+  const gradCrit = ctx.createLinearGradient(0, 0, 0, 200);
+  gradCrit.addColorStop(0, '#EA580C');
+  gradCrit.addColorStop(1, '#EF4444');
+
+  const gradHigh = ctx.createLinearGradient(0, 0, 0, 200);
+  gradHigh.addColorStop(0, '#F97316');
+  gradHigh.addColorStop(1, '#FF8C00');
+
+  const gradMed = ctx.createLinearGradient(0, 0, 0, 200);
+  gradMed.addColorStop(0, '#F59E0B');
+  gradMed.addColorStop(1, '#D97706');
+
+  const gradLow = ctx.createLinearGradient(0, 0, 0, 200);
+  gradLow.addColorStop(0, '#00D2FF');
+  gradLow.addColorStop(1, '#06B6D4');
+
   riskDistributionChartInst = new Chart(ctx, {
     type: 'doughnut',
+    plugins: [doughnutCenterTextPlugin],
     data: {
-      labels: ['Critical', 'High', 'Medium', 'Low'],
+      labels: ['Critical Risk', 'High Risk', 'Medium Risk', 'Low Risk'],
       datasets: [{
         data: data,
-        backgroundColor: ['#EF4444', '#F97316', '#EAB308', '#10B981'],
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'right',
-          labels: {
-            color: '#cbd5e1',
-            font: { family: 'Inter', size: 11 }
-          }
-        }
-      },
-      cutout: '70%'
-    }
-  });
-}
-
-let topRisksChartInst = null;
-function drawTopRisksChart(topRisks) {
-  if (!topRisks || !document.getElementById('topRiskChart')) return;
-  const sliced = topRisks.slice(0, 5);
-  const labels = sliced.map(r => r.country_name);
-  const data = sliced.map(r => r.score);
-  const ctx = document.getElementById('topRiskChart').getContext('2d');
-  
-  if (topRisksChartInst) {
-    topRisksChartInst.data.labels = labels;
-    topRisksChartInst.data.datasets[0].data = data;
-    topRisksChartInst.update();
-    return;
-  }
-  
-  topRisksChartInst = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Risk Score',
-        data: data,
-        backgroundColor: 'rgba(239, 68, 68, 0.75)',
-        borderColor: '#EF4444',
-        borderWidth: 1,
+        backgroundColor: [gradCrit, gradHigh, gradMed, gradLow],
+        borderWidth: 3,
+        borderColor: '#050D1A',
+        hoverOffset: 8,
         borderRadius: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: function(e, elements) {
+        window.location.href = '/risk-scores';
+      },
       plugins: {
-        legend: { display: false }
+        legend: {
+          position: 'right',
+          labels: {
+            color: '#94A3B8',
+            usePointStyle: true,
+            pointStyle: 'circle',
+            boxWidth: 8,
+            padding: 16,
+            font: { family: 'Inter', size: 11, weight: '500' }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(9, 21, 39, 0.96)',
+          titleFont: { family: 'Outfit', size: 12, weight: '600' },
+          bodyFont: { family: 'Inter', size: 11 },
+          padding: 12,
+          cornerRadius: 10,
+          borderColor: 'rgba(0, 210, 255, 0.2)',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => ` ${ctx.label}: ${ctx.raw}%`
+          }
+        }
+      },
+      cutout: '72%'
+    }
+  });
+}
+
+// Chart.js Top 5 Sovereign Risk Index (Bar Chart)
+let topRisksChartInst = null;
+function drawTopRisksChart(topRisks) {
+  if (!topRisks || !document.getElementById('topRiskChart')) return;
+  const sliced = topRisks.slice(0, 5);
+  const labels = sliced.map(r => r.country_name);
+  const data = sliced.map(r => r.score || r.total_score || 0);
+  const ctx = document.getElementById('topRiskChart').getContext('2d');
+
+  if (topRisksChartInst) {
+    topRisksChartInst.data.labels = labels;
+    topRisksChartInst.data.datasets[0].data = data;
+    topRisksChartInst.update();
+    return;
+  }
+
+  // Create Terracotta-to-Ocean Gradient Fill
+  const barGrad = ctx.createLinearGradient(0, 0, 0, 220);
+  barGrad.addColorStop(0, '#F97316');
+  barGrad.addColorStop(0.5, '#EA580C');
+  barGrad.addColorStop(1, 'rgba(0, 210, 255, 0.25)');
+
+  topRisksChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Risk Index',
+        data: data,
+        backgroundColor: barGrad,
+        hoverBackgroundColor: '#F97316',
+        borderColor: '#F97316',
+        borderWidth: 1,
+        borderRadius: 10,
+        borderSkipped: false,
+        barThickness: 32
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      onClick: function(e, elements) {
+        window.location.href = '/risk-scores';
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(9, 21, 39, 0.96)',
+          titleFont: { family: 'Outfit', size: 12, weight: '600' },
+          bodyFont: { family: 'Inter', size: 11 },
+          padding: 12,
+          cornerRadius: 10,
+          borderColor: 'rgba(0, 210, 255, 0.2)',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => ` Risk Index: ${ctx.raw}/100`
+          }
+        }
       },
       scales: {
         x: {
-          ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 } },
-          grid: { display: false }
+          ticks: { color: '#CBD5E1', font: { family: 'Inter', size: 11, weight: '500' } },
+          grid: { display: false },
+          border: { display: false }
         },
         y: {
           min: 0,
           max: 100,
-          ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 } },
-          grid: { color: 'rgba(255, 255, 255, 0.05)' }
+          ticks: { color: '#64748B', font: { family: 'Inter', size: 10 }, stepSize: 25 },
+          grid: { color: 'rgba(0, 210, 255, 0.05)' },
+          border: { display: false }
         }
       }
     }
@@ -268,45 +276,71 @@ function drawTopRisksChart(topRisks) {
 
 function riskBadge(level) {
   const map = {
-    Critical: 'bg-red-500/15 text-red-400 border border-red-500/25 px-2.5 py-0.5 text-[10px] font-bold rounded-md',
-    High: 'bg-orange-500/15 text-orange-400 border border-orange-500/25 px-2.5 py-0.5 text-[10px] font-bold rounded-md',
-    Medium: 'bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2.5 py-0.5 text-[10px] font-bold rounded-md',
-    Low: 'bg-green-500/15 text-green-400 border border-green-500/25 px-2.5 py-0.5 text-[10px] font-bold rounded-md'
+    Critical: 'sg-badge critical',
+    High: 'sg-badge high',
+    Medium: 'sg-badge medium',
+    Low: 'sg-badge low'
   };
-  return map[level] || 'bg-slate-500/15 text-slate-400 px-2.5 py-0.5 text-[10px] font-bold rounded-md';
+  return map[level] || 'sg-badge';
 }
 
 function drawLists(data) {
-  // Top High Risk Countries Table
+  // 1. Top High Risk Countries Table
   const highBody = document.getElementById('top-risks-body');
   if (highBody && data.topRisks) {
     highBody.innerHTML = '';
     data.topRisks.slice(0, 5).forEach(r => {
+      const score = r.score || r.total_score || 0;
+      let scoreColorClass = 'red';
+      if (score < 26) scoreColorClass = 'emerald';
+      else if (score < 51) scoreColorClass = 'amber';
+
       const tr = document.createElement('tr');
-      tr.className = 'border-b border-white/5 last:border-0';
+      tr.className = 'sg-table-row';
+      tr.title = `Click to view risk analysis for ${r.country_name}`;
+      tr.onclick = function() {
+        window.location.href = '/risk-scores';
+      };
       tr.innerHTML = `
-        <td class="px-4 py-3 flex items-center gap-2">
-          ${r.flag ? `<img src="${r.flag}" class="w-4 h-2.5 object-cover rounded-sm border border-white/10">` : ''}
-          <span class="font-semibold text-slate-200">${r.country_name}</span>
+        <td class="py-3 flex items-center gap-2.5">
+          ${r.flag ? `<img src="${r.flag}" class="w-5 h-3.5 object-cover rounded-sm border border-white/10 shadow-sm">` : '<span class="text-xs">🌐</span>'}
+          <span class="font-medium text-slate-200 text-xs">${r.country_name}</span>
         </td>
-        <td class="px-3 py-3 text-center font-bold text-red-400">${r.score}</td>
-        <td class="px-3 py-3 text-center"><span class="${riskBadge(r.riskLevel)}">${r.riskLevel}</span></td>
+        <td class="py-3 text-center">
+          <div class="flex items-center justify-center gap-2">
+            <span class="font-extrabold text-white font-outfit text-sm">${score}</span>
+            <div class="sg-score-track">
+              <div class="sg-score-fill ${scoreColorClass}" style="width: ${Math.min(100, score)}%;"></div>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 text-center"><span class="${riskBadge(r.riskLevel)}">${r.riskLevel}</span></td>
       `;
       highBody.appendChild(tr);
     });
   }
-  // Active Ports Status Table
+
+  // 2. Active Ports Status Table
   const portsBody = document.getElementById('active-ports-body');
   if (portsBody && data.activePorts) {
     portsBody.innerHTML = '';
     data.activePorts.slice(0, 5).forEach(p => {
       const tr = document.createElement('tr');
-      tr.className = 'border-b border-white/5 last:border-0';
+      tr.className = 'sg-table-row';
+      tr.title = `Click to view maritime ports`;
+      tr.onclick = function() {
+        window.location.href = '/ports';
+      };
       tr.innerHTML = `
-        <td class="px-4 py-3 font-semibold text-slate-200">⚓ ${p.port_name}</td>
-        <td class="px-3 py-3 text-slate-400">${p.city}, ${p.country_name}</td>
-        <td class="px-3 py-3 text-center">
-          <span class="px-2.5 py-0.5 text-[10px] font-extrabold rounded-md ${p.status === 'Active' ? 'bg-green-500/15 text-green-400 border border-green-500/25' : 'bg-red-500/15 text-red-400 border border-red-500/25'}">${p.status}</span>
+        <td class="py-3 font-medium text-slate-200 text-xs flex items-center gap-1.5">
+          <span class="text-cyan-400">⚓</span> ${p.port_name}
+        </td>
+        <td class="py-3 text-slate-400 text-xs">${p.city || 'N/A'}, ${p.country_name || ''}</td>
+        <td class="py-3 text-center">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[9px] font-bold rounded-full ${p.status === 'Active' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+            <span class="w-1.5 h-1.5 rounded-full ${p.status === 'Active' ? 'bg-cyan-400 animate-pulse' : 'bg-rose-400'}"></span>
+            ${p.status || 'Active'}
+          </span>
         </td>
       `;
       portsBody.appendChild(tr);
@@ -320,20 +354,21 @@ function drawApiStatus(statusArray) {
   container.innerHTML = '';
   if (!statusArray || statusArray.length === 0) {
     const p = document.createElement('p');
-    p.className = 'text-center text-slate-500 py-4 text-xs';
-    p.textContent = 'All APIs operational';
+    p.className = 'text-center text-slate-400 py-4 text-xs';
+    p.textContent = 'All API integrations healthy';
     container.appendChild(p);
     return;
   }
   statusArray.forEach(s => {
     const div = document.createElement('div');
-    div.className = 'flex items-center justify-between py-2 border-b border-white/5 last:border-0';
+    div.className = 'flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0';
     div.innerHTML = `
-      <span class="text-xs text-slate-400">${s.name}</span>
-      <span class="text-xs font-bold ${s.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400'}">${s.status}</span>
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full ${s.status === 'ACTIVE' ? 'bg-cyan-400 shadow-sm shadow-cyan-400' : 'bg-rose-400'}"></span>
+        <span class="text-xs font-semibold text-slate-300">${s.name}</span>
+      </div>
+      <span class="text-[10px] font-extrabold tracking-wider ${s.status === 'ACTIVE' ? 'text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20' : 'text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20'}">${s.status}</span>
     `;
     container.appendChild(div);
   });
 }
-
-// End of rendering helpers

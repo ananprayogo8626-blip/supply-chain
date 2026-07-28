@@ -406,7 +406,7 @@
                             </div>
                             <h3>No News Articles</h3>
                             <p>
-                                Click "Sync News API" to fetch latest articles from GNews.
+                                Click "Sync News API" to fetch articles from GNews, or add manually.
                             </p>
                             <button onclick="startImport('news')" class="sg-btn sg-btn-sm sg-btn-teal">
                                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>

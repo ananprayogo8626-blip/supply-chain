@@ -1,0 +1,191 @@
+/* public/css/minimalist.css — Sleek & Clean Minimalist Dashboard Styles */
+
+.min-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Minimal Header */
+.min-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.min-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: #F8FAFC;
+    letter-spacing: -0.025em;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.min-subtitle {
+    font-size: 0.8125rem;
+    color: #94A3B8;
+    margin-top: 0.25rem;
+}
+
+/* Mode Switcher Pill */
+.min-mode-switch {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    padding: 3px;
+    backdrop-filter: blur(12px);
+}
+
+.min-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94A3B8;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+}
+
+.min-mode-btn:hover {
+    color: #F8FAFC;
+}
+
+.min-mode-btn.active {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* Minimalist Stat Cards Grid */
+.min-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+}
+
+@media (min-width: 640px) {
+    .min-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1024px) {
+    .min-stat-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.min-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1.25rem 1.5rem;
+    backdrop-filter: blur(16px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none !important;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.min-card:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.4);
+}
+
+.min-card-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94A3B8;
+}
+
+.min-card-val {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #F8FAFC;
+    line-height: 1.2;
+    margin-top: 0.375rem;
+}
+
+.min-card-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #38BDF8;
+}
+
+.min-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.min-badge-blue { background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.2); }
+.min-badge-emerald { background: rgba(52, 211, 153, 0.12); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.2); }
+.min-badge-amber { background: rgba(251, 191, 36, 0.12); color: #FBBF24; border: 1px solid rgba(251, 191, 36, 0.2); }
+.min-badge-rose { background: rgba(251, 113, 133, 0.12); color: #FB7185; border: 1px solid rgba(251, 113, 133, 0.2); }
+
+/* Minimalist Progress Bar */
+.min-progress-bg {
+    height: 6px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.min-progress-bar {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.6s ease;
+}
+
+/* Minimal Table & List Items */
+.min-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    transition: all 0.15s ease;
+    margin-bottom: 0.5rem;
+}
+
+.min-list-item:last-child {
+    margin-bottom: 0;
+}
+
+.min-list-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+}

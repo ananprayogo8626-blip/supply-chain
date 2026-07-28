@@ -15,6 +15,10 @@
                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                 Sync from API
             </a>
+            <a href="{{ route('countries.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                Add Country
+            </a>
         </x-crud-header>
 
         @if(session('success'))

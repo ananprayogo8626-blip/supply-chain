@@ -12,6 +12,10 @@
             <i data-lucide="download" class="w-4 h-4"></i>
             Sync World Port API
         </a>
+        <a href="{{ route('ports.create') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Add Port
+        </a>
     </x-crud-header>
 
     @if(session('success'))
@@ -192,7 +196,7 @@
                                         <i data-lucide="anchor" class="w-8 h-8"></i>
                                     </div>
                                     <h3>No Ports Found</h3>
-                                    <p>Sync ports from World Port Index to monitor global maritime hubs.</p>
+                                    <p>Import ports from World Port Index, or add records manually.</p>
                                     <a href="{{ route('ports.import') }}" class="sg-btn sg-btn-sm sg-btn-gradient">
                                         <i data-lucide="download" class="w-4 h-4"></i>
                                         Import Now

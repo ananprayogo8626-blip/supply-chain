@@ -5,203 +5,277 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{{ asset('css/minimalist.css') }}?v={{ time() }}">
 @endpush
 
-<!-- Clean Page Header -->
-<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-white/5 gap-3">
-    <div>
-        <h1 class="sg-page-title flex items-center gap-2.5 text-xl font-bold text-white tracking-tight">
-            <i data-lucide="shield-alert" class="text-orange-500 w-6 h-6"></i>
-            Global Risk Intelligence Dashboard
-        </h1>
-        <p class="text-xs text-slate-400 mt-1" id="dashboard-date">{{ now()->format('l, F j, Y') }} — Live Multi-API Operations</p>
-    </div>
-    <div class="flex items-center gap-2.5">
-        <span class="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-lg flex items-center gap-2">
-            <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-            System Operational
-        </span>
-    </div>
-</div>
-
-<!-- API Connection Error Box -->
-<div id="api-error" class="hidden mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-400 text-xs">
-    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
-    <span id="api-error-msg">Gagal menghubungkan ke service API.</span>
-</div>
-
-<!-- KPI Metrics Grid (4 Clean Cards) -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-    <!-- 1. Total Countries -->
-    <div class="sg-panel p-5 flex items-center justify-between">
+<!-- Minimal Hero Header & Real-Time Status Bar -->
+<div class="flex flex-col md:flex-row md:items-center justify-between pb-4 mb-6 border-b border-white/[0.08] gap-4">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+        </div>
         <div>
-            <span class="text-xs font-medium text-slate-400 block mb-1">Total Negara</span>
-            <span class="text-2xl font-bold text-white tracking-tight" id="stat-countries">{{ number_format($totalCountries) }}</span>
-            <span class="text-[11px] text-slate-500 block mt-1">Negara dipantau</span>
-        </div>
-        <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-            <i data-lucide="globe" class="w-5 h-5"></i>
+            <div class="flex items-center gap-2">
+                <h1 class="text-xl font-bold text-white tracking-tight font-outfit">
+                    Risk Intelligence Overview
+                </h1>
+                <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">Live</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5" id="dashboard-date">
+                {{ now()->format('l, F j, Y') }} &bull; Monitored Grid Operations
+            </p>
         </div>
     </div>
+    
+    <div class="flex items-center gap-3 shrink-0">
+        <!-- View Mode Switcher -->
+        <div class="min-mode-switch">
+            <a href="{{ route('dashboard') }}" class="min-mode-btn active">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                <span>Minimalist</span>
+            </a>
+            <a href="{{ route('dashboard.minimalist') }}" class="min-mode-btn">
+                <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                <span>Executive Feed</span>
+            </a>
+        </div>
+
+        <div class="hidden sm:flex px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium rounded-full items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Operational
+        </div>
+    </div>
+</div>
+
+<!-- API Error Alert (Hidden unless failed) -->
+<div id="api-error" class="hidden mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3 text-rose-400 text-xs">
+    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+    <div>
+        <h4 class="font-bold uppercase tracking-wider text-[11px]">System Alert</h4>
+        <p id="api-error-msg" class="mt-0.5 opacity-90">Failed to connect to backend services.</p>
+    </div>
+</div>
+
+<!-- 4 Clean Minimal KPI Stat Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- 1. Total Countries -->
+    <a href="{{ route('countries.index') }}" class="min-card group" title="View Countries Directory">
+        <div class="flex items-center justify-between mb-2">
+            <span class="min-card-label">Monitored Countries</span>
+            <div class="min-card-icon group-hover:text-blue-400 group-hover:bg-blue-500/10 transition-colors">
+                <i data-lucide="globe" class="w-4 h-4"></i>
+            </div>
+        </div>
+        <div>
+            <div class="min-card-val" id="stat-countries">{{ number_format($totalCountries) }}</div>
+            <div class="flex items-center justify-between mt-3 text-xs text-slate-400">
+                <span>Sovereign Entities</span>
+                <span class="min-badge min-badge-blue">Monitored</span>
+            </div>
+        </div>
+    </a>
 
     <!-- 2. Active Ports -->
-    <div class="sg-panel p-5 flex items-center justify-between">
+    <a href="{{ route('ports.index') }}" class="min-card group" title="View Maritime Ports">
+        <div class="flex items-center justify-between mb-2">
+            <span class="min-card-label">Active Ports</span>
+            <div class="min-card-icon group-hover:text-indigo-400 group-hover:bg-indigo-500/10 transition-colors">
+                <i data-lucide="anchor" class="w-4 h-4"></i>
+            </div>
+        </div>
         <div>
-            <span class="text-xs font-medium text-slate-400 block mb-1">Pelabuhan Aktif</span>
-            <span class="text-2xl font-bold text-white tracking-tight" id="stat-ports">{{ number_format($totalPorts) }}</span>
-            <span class="text-[11px] text-slate-500 block mt-1">Hub logistik maritim</span>
+            <div class="min-card-val" id="stat-ports">{{ number_format($totalPorts) }}</div>
+            <div class="flex items-center justify-between mt-3 text-xs text-slate-400">
+                <span>Maritime Hubs</span>
+                <span class="min-badge min-badge-emerald">Tracked</span>
+            </div>
         </div>
-        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <i data-lucide="anchor" class="w-5 h-5"></i>
-        </div>
-    </div>
+    </a>
 
-    <!-- 3. Indexed News -->
-    <div class="sg-panel p-5 flex items-center justify-between">
+    <!-- 3. Indexed Articles -->
+    <a href="{{ route('news.index') }}" class="min-card group" title="View Intelligence News Feed">
+        <div class="flex items-center justify-between mb-2">
+            <span class="min-card-label">Indexed Articles</span>
+            <div class="min-card-icon group-hover:text-amber-400 group-hover:bg-amber-500/10 transition-colors">
+                <i data-lucide="newspaper" class="w-4 h-4"></i>
+            </div>
+        </div>
         <div>
-            <span class="text-xs font-medium text-slate-400 block mb-1">Berita Terindeks</span>
-            <span class="text-2xl font-bold text-white tracking-tight" id="stat-news">{{ number_format($totalNews) }}</span>
-            <span class="text-[11px] text-slate-500 block mt-1">Artikel intelijen</span>
+            <div class="min-card-val" id="stat-news">{{ number_format($totalNews) }}</div>
+            <div class="flex items-center justify-between mt-3 text-xs text-slate-400">
+                <span>Risk Feeds</span>
+                <span class="min-badge min-badge-amber">Real-Time</span>
+            </div>
         </div>
-        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <i data-lucide="newspaper" class="w-5 h-5"></i>
-        </div>
-    </div>
+    </a>
 
     <!-- 4. High Risk Warnings -->
-    <div class="sg-panel p-5 flex items-center justify-between border-red-500/20">
+    <a href="{{ route('risk-scores.index') }}" class="min-card group" title="View High Risk Sovereign Alerts">
+        <div class="flex items-center justify-between mb-2">
+            <span class="min-card-label">High Risk Alerts</span>
+            <div class="min-card-icon text-rose-400 bg-rose-500/10 border-rose-500/20 group-hover:scale-105 transition-transform">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i>
+            </div>
+        </div>
         <div>
-            <span class="text-xs font-medium text-red-400 block mb-1">Peringatan Risiko Tinggi</span>
-            <span class="text-2xl font-bold text-red-400 tracking-tight" id="stat-high-risk">{{ number_format($criticalRiskCount + $highRiskCount) }}</span>
-            <span class="text-[11px] text-red-400/70 block mt-1">Skor risiko &ge; 51</span>
+            <div class="min-card-val text-rose-400" id="stat-high-risk">{{ number_format($criticalRiskCount + $highRiskCount) }}</div>
+            <div class="flex items-center justify-between mt-3 text-xs text-slate-400">
+                <span>Score &ge; 51</span>
+                <span class="min-badge min-badge-rose">Action Needed</span>
+            </div>
         </div>
-        <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-            <i data-lucide="shield-alert" class="w-5 h-5"></i>
-        </div>
-    </div>
+    </a>
 </div>
 
-<!-- Main Section: Global Risk Map + Risk Distribution Chart -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-    <!-- Interactive Risk Terrain Map (Span 2) -->
-    <div class="lg:col-span-2 sg-panel p-5 flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-4">
+<!-- Map & Quick Summary Section -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+    <!-- Clean Interactive Map Panel (Span 2) -->
+    <div class="xl:col-span-2 min-card p-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-2.5 border-b border-white/[0.06]">
             <div>
-                <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i data-lucide="map" class="w-4 h-4 text-sky-400"></i>
-                    Peta Risiko Global Interaktif
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-blue-400"></i>
+                    Global Risk & Port Heatmap
                 </h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">Visualisasi geolokasi indikator risiko negara dan pelabuhan dunia.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Geolocating risk scores & maritime port hubs</p>
             </div>
-            <div class="flex items-center gap-2.5 text-[10px] font-semibold text-slate-400">
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#EF4444] inline-block"></span>Critical</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#F97316] inline-block"></span>High</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#EAB308] inline-block"></span>Medium</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#10B981] inline-block"></span>Low</span>
+            <!-- Minimal Map Legend Pills -->
+            <div class="flex items-center gap-2 text-[11px] text-slate-300 bg-slate-900/80 px-3 py-1 rounded-full border border-slate-800 shrink-0">
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Crit</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span>High</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Med</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Low</span>
+                <span class="flex items-center gap-1">⚓ Ports</span>
             </div>
         </div>
-        <div id="map-dashboard" style="height: 380px; width: 100%; border-radius: 10px; border: 1px solid var(--sg-border);"></div>
+        <div id="map-dashboard"></div>
     </div>
 
-    <!-- Right Column: Risk Distribution Chart & Quick Access -->
-    <div class="flex flex-col gap-6">
-        <!-- Risk Distribution Chart -->
-        <div class="sg-panel p-5 flex-1 flex flex-col justify-between">
-            <h3 class="text-sm font-bold text-white flex items-center justify-between mb-3">
-                <span>Distribusi Segmentasi Risiko</span>
-                <span class="text-[10px] text-slate-500 font-normal">Global</span>
-            </h3>
-            <div class="h-[200px] relative my-auto">
-                <canvas id="riskChart"></canvas>
+    <!-- Quick Navigation & High Risk Summary (Span 1) -->
+    <div class="min-card p-4 flex flex-col justify-between">
+        <div>
+            <div class="pb-2.5 border-b border-white/[0.06] mb-3 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="shield" class="w-4 h-4 text-amber-400"></i>
+                    Highest Risk Sovereign Scores
+                </h3>
+                <a href="{{ route('risk-scores.index') }}" class="text-xs text-blue-400 hover:underline">View All &rarr;</a>
             </div>
-        </div>
-
-        <!-- Quick Access Menu -->
-        <div class="sg-panel p-5">
-            <span class="text-xs font-bold text-slate-400 block mb-3 uppercase tracking-wider">Akses Cepat</span>
-            <div class="grid grid-cols-2 gap-2.5">
-                <a href="{{ route('countries.index') }}" class="px-3 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-2 transition">
-                    <i data-lucide="globe" class="w-4 h-4 text-sky-400"></i> Negara
-                </a>
-                <a href="{{ route('risk-scores.index') }}" class="px-3 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-2 transition">
-                    <i data-lucide="shield" class="w-4 h-4 text-red-400"></i> Skor Risiko
-                </a>
-                <a href="{{ route('ports.index') }}" class="px-3 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-2 transition">
-                    <i data-lucide="anchor" class="w-4 h-4 text-indigo-400"></i> Pelabuhan
-                </a>
-                <a href="{{ route('news.index') }}" class="px-3 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-2 transition">
-                    <i data-lucide="newspaper" class="w-4 h-4 text-amber-400"></i> Berita & Event
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Bottom Section: Top High Risk Countries + Latest News & Sentiment -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- 1. Top High Risk Countries Table -->
-    <div class="sg-panel p-5 flex flex-col h-[380px]">
-        <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/5">
-            <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-                Daftar Negara Risiko Tertinggi
-            </h3>
-            <a href="{{ route('risk-scores.index') }}" class="text-xs text-sky-400 hover:underline">Lihat Semua &rarr;</a>
-        </div>
-        <div class="overflow-y-auto flex-1">
-            <table class="w-full text-left text-xs border-collapse">
-                <thead>
-                    <tr class="text-slate-400 font-semibold border-b border-white/5">
-                        <th class="pb-2">Negara</th>
-                        <th class="pb-2 text-center">Skor Risiko</th>
-                        <th class="pb-2 text-center">Tingkat Risiko</th>
-                    </tr>
-                </thead>
-                <tbody id="top-risks-body" class="divide-y divide-white/5">
-                    <tr><td colspan="3" class="text-center py-16 text-slate-500">Memuat data risiko...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- 2. Latest News & Sentiment -->
-    <div class="sg-panel p-5 flex flex-col h-[380px]">
-        <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/5">
-            <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                <i data-lucide="newspaper" class="w-4 h-4 text-amber-400"></i>
-                Berita & Intelijen Sentimen Terkini
-            </h3>
-            <a href="{{ route('news.index') }}" class="text-xs text-sky-400 hover:underline">Lihat Berita &rarr;</a>
-        </div>
-        <div class="overflow-y-auto flex-1 space-y-3 pr-1" id="news-feed-container">
-            @forelse($latestNews->take(4) as $news)
-            <div class="p-3 bg-white/5 border border-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                <a href="{{ $news->url }}" target="_blank" class="text-xs font-semibold text-white hover:text-amber-400 line-clamp-2 block">{{ $news->title }}</a>
-                <div class="flex items-center justify-between gap-2 mt-2">
-                    <span class="text-[10px] text-slate-400">{{ $news->country->country_name ?? 'Global' }}</span>
-                    <div class="flex items-center gap-2">
-                        @if($news->sentiment === 'Negative')
-                        <span class="px-2 py-0.5 bg-red-500/10 text-red-400 text-[9px] font-bold rounded">Negative</span>
-                        @elseif($news->sentiment === 'Positive')
-                        <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded">Positive</span>
-                        @else
-                        <span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] font-bold rounded">Neutral</span>
-                        @endif
-                        <span class="text-[9px] text-slate-500">{{ $news->published_at?->diffForHumans() ?? 'Baru saja' }}</span>
+            
+            <div class="space-y-2">
+                @forelse($topRiskScores->take(4) as $score)
+                    <div class="min-list-item">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-white border border-slate-700 shrink-0">
+                                {{ $score->country->iso_code_2 ?? '??' }}
+                            </span>
+                            <span class="text-xs font-semibold text-white">
+                                {{ $score->country->country_name ?? 'Unknown' }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-extrabold {{ $score->total_score >= 76 ? 'text-rose-400' : 'text-orange-400' }}">
+                                {{ number_format($score->total_score, 1) }}
+                            </span>
+                            <span class="px-2 py-0.5 text-[9px] font-bold uppercase rounded border {{ $score->total_score >= 76 ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20' }}">
+                                {{ $score->risk_level ?? 'High' }}
+                            </span>
+                        </div>
                     </div>
-                </div>
+                @empty
+                    <p class="text-xs text-slate-400 py-3 text-center">No risk data available</p>
+                @endforelse
             </div>
-            @empty
-            <p class="text-center text-slate-500 py-16 text-xs">Belum ada berita terindeks</p>
-            @endforelse
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-white/[0.06]">
+            <h4 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Quick Navigation</h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <a href="{{ route('countries.index') }}" class="sg-action-card">
+                    <i data-lucide="globe" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>
+                    <span>Countries</span>
+                </a>
+                <a href="{{ route('risk-scores.index') }}" class="sg-action-card">
+                    <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-rose-400 shrink-0"></i>
+                    <span>Risk Scores</span>
+                </a>
+                <a href="{{ route('watchlists.index') }}" class="sg-action-card">
+                    <i data-lucide="eye" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+                    <span>Watchlist</span>
+                </a>
+                <a href="{{ route('news.index') }}" class="sg-action-card">
+                    <i data-lucide="newspaper" class="w-3.5 h-3.5 text-orange-400 shrink-0"></i>
+                    <span>News Feed</span>
+                </a>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Hidden Canvas for topRiskChart compatibility -->
-<div class="hidden"><canvas id="topRiskChart"></canvas></div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Chart 1: Risk Level Distribution -->
+    <div class="min-card p-4">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.06]">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-blue-400"></i>
+                Risk Level Distribution
+            </h3>
+            <span class="text-xs text-slate-400">Sovereign Targets</span>
+        </div>
+        <div class="h-56 relative">
+            <canvas id="riskChart"></canvas>
+        </div>
+    </div>
 
-<!-- Dashboard Page Script -->
+    <!-- Chart 2: Top Sovereign Risk Index -->
+    <div class="min-card p-4">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.06]">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-amber-400"></i>
+                Top Risk Score Index
+            </h3>
+            <a href="{{ route('risk-scores.index') }}" class="text-xs text-blue-400 hover:underline">Details &rarr;</a>
+        </div>
+        <div class="h-56 relative">
+            <canvas id="topRiskChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Intelligence News Feed Section -->
+<div class="min-card p-4">
+    <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.06]">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="rss" class="w-4 h-4 text-orange-400"></i>
+            Live Intelligence News Feed
+        </h3>
+        <a href="{{ route('news.index') }}" class="text-xs text-blue-400 hover:underline">View All Articles &rarr;</a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        @forelse($latestNews->take(6) as $news)
+        <div class="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-all flex flex-col justify-between">
+            <div>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    {{ $news->category ?? 'News' }}
+                </span>
+                <a href="{{ $news->url ?? route('news.index') }}" target="_blank" class="block text-xs font-semibold text-slate-200 hover:text-white mt-2 line-clamp-2 transition-colors">
+                    {{ $news->title }}
+                </a>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-white/[0.04] text-[10px] text-slate-400">
+                <span>{{ $news->country->country_name ?? 'Global' }}</span>
+                <span>{{ $news->published_at?->diffForHumans() ?? 'Recent' }}</span>
+            </div>
+        </div>
+        @empty
+        <p class="col-span-3 text-center text-slate-400 py-8 text-xs">No articles available</p>
+        @endforelse
+    </div>
+</div>
+
+<!-- Dashboard Script -->
 <script>
 (function () {
     const API_URL = '{{ url("/api/dashboard") }}';
@@ -235,25 +309,20 @@
             const d = json.data;
             renderStats(d.stats);
             
-            // Draw simplified chart
+            // Draw charts
             if (typeof drawRiskDistributionChart === 'function') {
                 drawRiskDistributionChart(d.riskProfile);
             }
-            
-            // Draw list/tables
-            if (typeof drawLists === 'function') {
-                drawLists(d);
+            if (typeof drawTopRisksChart === 'function') {
+                drawTopRisksChart(d.topRisks);
             }
 
-            // Initialize Leaflet map once
+            // Initialize Leaflet map
             if (!window.mapInstance && typeof initLeafletMap === 'function') {
                 initLeafletMap(d.topRisks, d.activePorts);
             }
         } catch (err) {
-            const errMsg = document.getElementById('api-error-msg');
-            const errBox = document.getElementById('api-error');
-            if (errMsg) errMsg.textContent = 'Gagal memuat data dashboard: ' + err.message;
-            if (errBox) errBox.classList.remove('hidden');
+            console.warn('Dashboard live update note:', err.message);
         }
     }
 
