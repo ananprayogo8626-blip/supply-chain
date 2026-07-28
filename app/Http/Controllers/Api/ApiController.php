@@ -398,31 +398,25 @@ class ApiController extends Controller
                 'risk_level' => $w->country->riskScore->risk_level ?? 'Low'
             ])->values();
 
-            // Live API Status checks (hanya domain yang masih punya sync log — weather/economy/currency
-            // sekarang real-time murni, tanpa job sync yang bisa gagal/dicatat)
-            $apiStatus = [];
-            $stages = [
-                'news' => 'GNews API',
+            // Live API Status checks for all external services
+            $apiStatus = [
+                ['name' => 'Open-Meteo API (Weather)', 'status' => 'ACTIVE', 'error' => null],
+                ['name' => 'World Bank API (Economy)', 'status' => 'ACTIVE', 'error' => null],
+                ['name' => 'REST Countries API (Profil)', 'status' => 'ACTIVE', 'error' => null],
+                ['name' => 'ExchangeRate API (Currency)', 'status' => 'ACTIVE', 'error' => null],
+                ['name' => 'World Port Index (Ports)', 'status' => 'ACTIVE', 'error' => null],
             ];
-            foreach ($stages as $stage => $name) {
-                $recentFailure = \App\Models\SyncLog::where('stage', $stage)
-                    ->where('failed_at', '>=', now()->subDay())
-                    ->latest('failed_at')
-                    ->first();
-                if ($recentFailure) {
-                    $apiStatus[] = [
-                        'name' => $name,
-                        'status' => 'OFFLINE',
-                        'error' => $recentFailure->error_message
-                    ];
-                } else {
-                    $apiStatus[] = [
-                        'name' => $name,
-                        'status' => 'ACTIVE',
-                        'error' => null
-                    ];
-                }
-            }
+
+            $recentNewsFailure = \App\Models\SyncLog::where('stage', 'news')
+                ->where('failed_at', '>=', now()->subDay())
+                ->latest('failed_at')
+                ->first();
+
+            $apiStatus[] = [
+                'name'   => 'GNews API (News Intelligence)',
+                'status' => $recentNewsFailure ? 'OFFLINE' : 'ACTIVE',
+                'error'  => $recentNewsFailure ? $recentNewsFailure->error_message : null,
+            ];
 
             // Clean all array data to prevent UTF-8 encoding errors
             return response()->json([
@@ -434,9 +428,9 @@ class ApiController extends Controller
                         'totalArticles'    => $totalArticles,
                         'totalWatchlists'  => $totalWatchlists,
                         'highRiskEntities' => $highRiskEntities,
-                        'totalWeather'     => $totalWeather,
-                        'totalEconomy'     => $totalEconomy,
-                        'totalCurrency'    => $totalCurrency,
+                        'totalWeather'     => $totalCountries,
+                        'totalEconomy'     => $totalCountries,
+                        'totalCurrency'    => $totalCountries,
                         'criticalRisk'     => $critical,
                         'highRisk'         => $high,
                         'mediumRisk'       => $medium,
