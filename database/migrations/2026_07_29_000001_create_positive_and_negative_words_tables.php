@@ -12,6 +12,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Safely drop compatibility views if present
+        try {
+            DB::statement("DROP VIEW IF EXISTS positive_words");
+            DB::statement("DROP VIEW IF EXISTS negative_words");
+        } catch (\Throwable $e) {
+            // Ignore if view drop is not supported or fails
+        }
+
         if (!Schema::hasTable('positive_words')) {
             Schema::create('positive_words', function (Blueprint $table) {
                 $table->id();
@@ -68,6 +76,11 @@ return new class extends Migration
      */
     public function down(): void
     {
+        try {
+            DB::statement("DROP VIEW IF EXISTS positive_words");
+            DB::statement("DROP VIEW IF EXISTS negative_words");
+        } catch (\Throwable $e) {}
+
         Schema::dropIfExists('positive_words');
         Schema::dropIfExists('negative_words');
     }
